@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { db } from "@ams/database";
 import Link from "next/link";
 import GapAnalysisPanel from "@/components/method-statements/gap-analysis-panel";
+import ConflictPanel from "@/components/method-statements/conflict-panel";
 import SectionEditor from "@/components/method-statements/section-editor";
 import SimilarMSBrowser from "@/components/method-statements/similar-ms-browser";
 import { STANDARD_SECTIONS } from "@ams/shared";
@@ -29,7 +30,7 @@ export default async function MethodStatementPage({
   const session = await auth();
   const userId = (session?.user as any)?.id as string;
 
-  const [ms, retrievalResults] = await Promise.all([
+  const [ms, retrievalResults, conflictRecords] = await Promise.all([
     db.methodStatement.findFirst({
       where: {
         id: msId,
@@ -85,6 +86,23 @@ export default async function MethodStatementPage({
             trade: { select: { name: true } },
           },
         },
+      },
+    }),
+    db.conflictRecord.findMany({
+      where: { methodStatementId: msId },
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        conflictType: true,
+        topic: true,
+        currentRequirement: true,
+        conflictingContent: true,
+        currentSourceRef: true,
+        conflictingSourceRef: true,
+        recommendedAction: true,
+        resolution: true,
+        resolutionNote: true,
+        historicalMethodStatement: { select: { title: true } },
       },
     }),
   ]);
@@ -198,6 +216,9 @@ export default async function MethodStatementPage({
 
           {/* Gap analysis (REQ-GAP-001 to REQ-GAP-005) */}
           <GapAnalysisPanel gapItems={ms.gapItems as any} methodStatementId={ms.id} />
+
+          {/* Conflict detection (REQ-CON-001 to REQ-CON-005) */}
+          <ConflictPanel conflicts={conflictRecords as any} methodStatementId={ms.id} />
 
           {/* Sections */}
           {STANDARD_SECTIONS.map((def) => {
