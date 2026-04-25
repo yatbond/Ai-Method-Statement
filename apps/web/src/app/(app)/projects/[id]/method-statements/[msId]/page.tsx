@@ -4,6 +4,7 @@ import { db } from "@ams/database";
 import Link from "next/link";
 import GapAnalysisPanel from "@/components/method-statements/gap-analysis-panel";
 import SectionEditor from "@/components/method-statements/section-editor";
+import SimilarMSBrowser from "@/components/method-statements/similar-ms-browser";
 import { STANDARD_SECTIONS } from "@ams/shared";
 
 export async function generateMetadata({
@@ -28,37 +29,56 @@ export default async function MethodStatementPage({
   const session = await auth();
   const userId = (session?.user as any)?.id as string;
 
-  const ms = await db.methodStatement.findFirst({
-    where: {
-      id: msId,
-      project: { members: { some: { userId } } },
-    },
-    include: {
-      trade: { select: { name: true } },
-      activity: { select: { name: true } },
-      sections: {
-        orderBy: { orderIndex: "asc" },
-        select: {
-          id: true,
-          sectionKey: true,
-          sectionTitle: true,
-          status: true,
-          specificityScore: true,
-          _count: { select: { comments: true } },
+  const [ms, retrievalResults] = await Promise.all([
+    db.methodStatement.findFirst({
+      where: {
+        id: msId,
+        project: { members: { some: { userId } } },
+      },
+      include: {
+        trade: { select: { id: true, name: true } },
+        activity: { select: { name: true } },
+        sections: {
+          orderBy: { orderIndex: "asc" },
+          select: {
+            id: true,
+            sectionKey: true,
+            sectionTitle: true,
+            status: true,
+            specificityScore: true,
+            _count: { select: { comments: true } },
+          },
+        },
+        gapItems: {
+          orderBy: { createdAt: "asc" },
+        },
+        conflicts: {
+          where: { resolution: "UNRESOLVED" },
+          select: { id: true, topic: true, conflictType: true },
+        },
+        _count: {
+          select: { exports: true },
         },
       },
-      gapItems: {
-        orderBy: { createdAt: "asc" },
+    }),
+    db.retrievalResult.findMany({
+      where: { methodStatementId: msId },
+      orderBy: { score: "desc" },
+      include: {
+        historicalMethodStatement: {
+          select: {
+            id: true,
+            title: true,
+            projectName: true,
+            client: true,
+            approvalStatus: true,
+            tags: { select: { key: true, value: true } },
+            trade: { select: { name: true } },
+          },
+        },
       },
-      conflicts: {
-        where: { resolution: "UNRESOLVED" },
-        select: { id: true, topic: true, conflictType: true },
-      },
-      _count: {
-        select: { exports: true },
-      },
-    },
-  });
+    }),
+  ]);
 
   if (!ms) notFound();
 
@@ -160,6 +180,13 @@ export default async function MethodStatementPage({
 
         {/* Main content area */}
         <div className="lg:col-span-3 space-y-4">
+          {/* Retrieved precedents (REQ-RAG-003, REQ-RAG-004) */}
+          <SimilarMSBrowser
+            methodStatementId={ms.id}
+            tradeId={ms.trade.id}
+            initialResults={retrievalResults as any}
+          />
+
           {/* Gap analysis */}
           {ms.gapItems.length > 0 && (
             <GapAnalysisPanel gapItems={ms.gapItems} methodStatementId={ms.id} />

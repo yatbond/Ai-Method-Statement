@@ -6,6 +6,7 @@
 import { Worker } from "bullmq";
 import { connection } from "./queues";
 import { processIngestion } from "./processors/ingestion";
+import { processHistoricalMSIngestion } from "./processors/historical-ms-ingestion";
 import { processEmbedding } from "./processors/embedding";
 import { processTagging } from "./processors/tagging";
 
@@ -36,8 +37,16 @@ function createWorker(
   return worker;
 }
 
+// document.ingest handles two job name variants: project documents and historical MS uploads
+async function ingestDispatcher(job: any) {
+  if (job.name === "historical-ms.ingest") {
+    return processHistoricalMSIngestion(job);
+  }
+  return processIngestion(job);
+}
+
 const workers = [
-  createWorker("document.ingest", processIngestion, 3),
+  createWorker("document.ingest", ingestDispatcher, 3),
   createWorker("document.embed", processEmbedding, 5),
   createWorker("document.tag", processTagging, 3),
 ];
@@ -54,5 +63,5 @@ process.on("SIGTERM", shutdown);
 process.on("SIGINT", shutdown);
 
 console.log(
-  `Worker service started. Processing queues: document.ingest, document.embed, document.tag`
+  "Worker service started. Processing queues: document.ingest (+ historical-ms.ingest), document.embed, document.tag"
 );
