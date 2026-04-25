@@ -11,6 +11,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { cn } from "@/lib/utils";
 import SpecificityHints from "./specificity-hints";
+import CitationViewer from "./citation-viewer";
 
 interface Section {
   id: string;
@@ -154,13 +155,6 @@ export default function SectionEditor({
     [methodStatementId, sectionKey]
   );
 
-  // Render [GAP: ...] in red, [SRC:...] in muted
-  function renderContent(content: string) {
-    return content
-      .replace(/\[GAP:\s*([^\]]+)\]/g, '<mark class="gap-marker">⚠ GAP: $1</mark>')
-      .replace(/\[SRC:[^\]]+\]/g, '');
-  }
-
   return (
     <div id={sectionKey} className="bg-white rounded-xl border border-gray-200 overflow-hidden scroll-mt-4">
       <button
@@ -265,9 +259,9 @@ export default function SectionEditor({
             </div>
           ) : (
             <div className="space-y-3">
-              <div
-                className="prose prose-sm max-w-none text-gray-700 min-h-16 p-4 rounded-lg border border-gray-100 bg-gray-50 [&_.gap-marker]:bg-red-100 [&_.gap-marker]:text-red-700 [&_.gap-marker]:px-1 [&_.gap-marker]:rounded [&_.gap-marker]:text-xs [&_.gap-marker]:font-medium"
-                dangerouslySetInnerHTML={{ __html: renderContent(section.content) }}
+              <CitationViewer
+                content={section.content}
+                className="min-h-16 p-4 rounded-lg border border-gray-100 bg-gray-50"
               />
 
               {specificityResult && (

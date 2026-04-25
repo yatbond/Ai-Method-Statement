@@ -62,12 +62,20 @@ export default async function KnowledgeBasePage({
             {total.toLocaleString()} approved historical method statements
           </p>
         </div>
-        <Link
-          href="/knowledge-base/upload"
-          className="px-4 py-2 rounded-lg bg-brand-600 text-white text-sm font-medium hover:bg-brand-700 transition-colors"
-        >
-          + Upload MS
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link
+            href="/knowledge-base/vocabulary"
+            className="px-4 py-2 rounded-lg border border-gray-200 text-sm text-gray-600 hover:bg-gray-50 transition-colors"
+          >
+            Vocabulary
+          </Link>
+          <Link
+            href="/knowledge-base/upload"
+            className="px-4 py-2 rounded-lg bg-brand-600 text-white text-sm font-medium hover:bg-brand-700 transition-colors"
+          >
+            + Upload MS
+          </Link>
+        </div>
       </div>
 
       {/* Filters */}

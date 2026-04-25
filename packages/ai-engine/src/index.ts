@@ -10,3 +10,4 @@ export * from "./export/word-exporter";
 export * from "./safety/index";
 export * from "./eval/hallucination-check";
 export * from "./eval/cost-tracker";
+export * from "./edms/index";
