@@ -5,6 +5,47 @@
 
 import { Worker } from "bullmq";
 import { connection } from "./queues";
+
+// ── Environment validation (fail-fast on missing required config) ─────────────
+function validateEnv() {
+  const required: Record<string, string> = {
+    ANTHROPIC_API_KEY: "LLM drafting and AI analysis",
+    DATABASE_URL:      "PostgreSQL database connection",
+    REDIS_URL:         "BullMQ job queue",
+  };
+
+  const optional: Record<string, string> = {
+    GOOGLE_API_KEY:        "Google Document AI and Gemini embeddings",
+    STORAGE_BUCKET:        "S3-compatible file storage",
+    WORKER_CONCURRENCY:    "Worker parallelism (default: 5)",
+  };
+
+  const missing: string[] = [];
+  for (const [key, purpose] of Object.entries(required)) {
+    if (!process.env[key]) {
+      missing.push(`  ${key}  (${purpose})`);
+    }
+  }
+
+  if (missing.length > 0) {
+    console.error("Worker startup failed — required environment variables missing:");
+    missing.forEach((m) => console.error(m));
+    process.exit(1);
+  }
+
+  const missingOptional: string[] = [];
+  for (const [key, purpose] of Object.entries(optional)) {
+    if (!process.env[key]) {
+      missingOptional.push(`  ${key}  (${purpose})`);
+    }
+  }
+  if (missingOptional.length > 0) {
+    console.warn("Warning — optional environment variables not set (some features may be unavailable):");
+    missingOptional.forEach((m) => console.warn(m));
+  }
+}
+
+validateEnv();
 import { processIngestion } from "./processors/ingestion";
 import { processHistoricalMSIngestion } from "./processors/historical-ms-ingestion";
 import { processEmbedding } from "./processors/embedding";

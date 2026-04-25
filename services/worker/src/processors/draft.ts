@@ -12,6 +12,7 @@ import { draftSection, type SourcePassageForDraft } from "@ams/ai-engine";
 import { AnthropicLLMProvider, buildMethodStatementBrief } from "@ams/ai-engine";
 import { analyseSpecificity } from "@ams/ai-engine";
 import type { SectionKey } from "@ams/shared";
+import { CostTrackingLLMProvider } from "../lib/cost-tracking";
 
 interface DraftJobPayload {
   methodStatementId: string;
@@ -164,7 +165,10 @@ export async function processDraft(job: Job<DraftJobPayload>) {
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (!apiKey) throw new Error("ANTHROPIC_API_KEY not configured");
 
-    const llm = new AnthropicLLMProvider(apiKey);
+    const llm = new CostTrackingLLMProvider(
+      new AnthropicLLMProvider(apiKey),
+      { operation: "drafting", methodStatementId, projectId: ms.project.id }
+    );
 
     await job.updateProgress(50);
 

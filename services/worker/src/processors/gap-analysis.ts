@@ -11,6 +11,7 @@ import type { Job } from "bullmq";
 import { db } from "@ams/database";
 import { detectGaps, type PassageContext } from "@ams/ai-engine";
 import { AnthropicLLMProvider } from "@ams/ai-engine";
+import { CostTrackingLLMProvider } from "../lib/cost-tracking";
 
 export async function processGapAnalysis(
   job: Job<{ methodStatementId: string }>
@@ -115,7 +116,10 @@ export async function processGapAnalysis(
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (!apiKey) throw new Error("ANTHROPIC_API_KEY not configured");
 
-    const llm = new AnthropicLLMProvider(apiKey);
+    const llm = new CostTrackingLLMProvider(
+      new AnthropicLLMProvider(apiKey),
+      { operation: "gap-analysis", methodStatementId, projectId: ms.project.id }
+    );
 
     const gaps = await detectGaps(
       {
