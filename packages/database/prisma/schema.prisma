@@ -1,0 +1,694 @@
+// =============================================================================
+// AI Method Statement Studio — Prisma Schema
+// =============================================================================
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  directUrl  = env("DIRECT_URL")
+  extensions = [pgvector(map: "vector", schema: "public")]
+}
+
+// =============================================================================
+// ENUMS
+// =============================================================================
+
+enum UserRole {
+  ADMIN
+  MANAGER
+  ENGINEER
+  PLANNER
+  SAFETY
+  COORDINATOR
+  VIEWER
+}
+
+enum MethodStatementStatus {
+  DRAFT
+  IN_REVIEW
+  APPROVED
+  SUPERSEDED
+  WITHDRAWN
+}
+
+enum GapItemStatus {
+  CONFIRMED_BY_DOCUMENT
+  CONFIRMED_BY_USER
+  SUGGESTED_FROM_PRECEDENT
+  CONFLICT
+  NOT_APPLICABLE
+  TO_BE_CONFIRMED
+  MISSING
+}
+
+enum ConflictType {
+  PROJECT_DOC_VS_PRECEDENT
+  DRAWING_VS_PRECEDENT
+  USER_INPUT_VS_RETRIEVED
+  PRECEDENT_VS_PRECEDENT
+  DRAFT_VS_CONFIRMED
+}
+
+enum ConflictResolution {
+  ACCEPT_CURRENT
+  ACCEPT_PRECEDENT
+  MANUAL_EDIT
+  UNRESOLVED
+  EXCLUDED
+}
+
+enum DocumentType {
+  CONTRACT
+  SPECIFICATION
+  DRAWING
+  RISK_ASSESSMENT
+  PROGRAMME
+  SITE_CONSTRAINTS
+  HISTORICAL_MS
+  OTHER
+}
+
+enum DocumentStatus {
+  QUEUED
+  PROCESSING
+  COMPLETE
+  ERROR
+  SUPERSEDED
+  WITHDRAWN
+}
+
+enum VisualType {
+  TABLE
+  CHART
+  DIAGRAM
+  GRAPHIC
+}
+
+enum SourcePool {
+  A // Historical method statements
+  B // Current project documents
+}
+
+enum WorkerJobStatus {
+  PENDING
+  RUNNING
+  COMPLETE
+  FAILED
+  RETRYING
+}
+
+enum SectionStatus {
+  NOT_STARTED
+  DRAFTING
+  DRAFT
+  IN_REVIEW
+  APPROVED
+}
+
+// =============================================================================
+// ORGANISATION & USERS
+// =============================================================================
+
+model Organisation {
+  id        String   @id @default(cuid())
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users    User[]
+  projects Project[]
+}
+
+model User {
+  id             String   @id @default(cuid())
+  email          String   @unique
+  name           String
+  organisationId String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  lastLoginAt    DateTime?
+
+  organisation     Organisation      @relation(fields: [organisationId], references: [id])
+  projectMembers   ProjectMember[]
+  auditLogs        AuditLog[]
+  comments         Comment[]
+  exports          ExportRecord[]
+  gapConfirmations GapItem[]         @relation("GapConfirmedBy")
+  sectionVersions  SectionVersion[]
+  markerActions    ReferenceMarker[] @relation("MarkerCreatedBy")
+
+  @@index([organisationId])
+}
+
+// =============================================================================
+// PROJECT & MEMBERSHIP
+// =============================================================================
+
+model Project {
+  id             String   @id @default(cuid())
+  name           String
+  description    String?
+  organisationId String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  archivedAt     DateTime?
+
+  organisation     Organisation      @relation(fields: [organisationId], references: [id])
+  members          ProjectMember[]
+  methodStatements MethodStatement[]
+  documents        ProjectDocument[]
+  auditLogs        AuditLog[]
+
+  @@index([organisationId])
+}
+
+model ProjectMember {
+  id        String   @id @default(cuid())
+  projectId String
+  userId    String
+  role      UserRole
+  createdAt DateTime @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, userId])
+  @@index([projectId])
+  @@index([userId])
+}
+
+// =============================================================================
+// TRADES & ACTIVITIES
+// =============================================================================
+
+model Trade {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  activities       Activity[]
+  tradePacks       TradePack[]
+  historicalMS     HistoricalMethodStatement[]
+  methodStatements MethodStatement[]
+}
+
+model Activity {
+  id          String   @id @default(cuid())
+  tradeId     String
+  name        String
+  description String?
+  createdAt   DateTime @default(now())
+
+  trade            Trade             @relation(fields: [tradeId], references: [id])
+  methodStatements MethodStatement[]
+
+  @@index([tradeId])
+}
+
+// =============================================================================
+// TRADE PACKS (REQ-TP)
+// =============================================================================
+
+model TradePack {
+  id          String   @id @default(cuid())
+  tradeId     String
+  version     String
+  isActive    Boolean  @default(false)
+  publishedAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  requiredFields       Json // List of required information fields
+  typicalSequences     Json // Common sequences for this trade
+  commonPlant          Json
+  commonLabour         Json
+  commonMaterials      Json
+  commonPermits        Json
+  tempWorksConsiders   Json // Temporary works considerations
+  safetyHazards        Json
+  envControls          Json // Environmental controls
+  qaQcChecks           Json
+  holdPoints           Json
+  standardVocabulary   Json
+  conflictRules        Json
+  gapQuestionBank      Json // Questions for gap analysis
+
+  trade            Trade             @relation(fields: [tradeId], references: [id])
+  methodStatements MethodStatement[]
+
+  @@index([tradeId])
+}
+
+// =============================================================================
+// KNOWLEDGE BASE — HISTORICAL METHOD STATEMENTS (REQ-KB)
+// =============================================================================
+
+model HistoricalMethodStatement {
+  id             String         @id @default(cuid())
+  tradeId        String
+  title          String
+  projectName    String?
+  client         String?
+  workType       String?
+  approvalStatus DocumentStatus @default(COMPLETE)
+  version        String?
+  documentDate   DateTime?
+  fileKey        String         // Object storage key
+  fileSize       Int?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  supersededAt   DateTime?
+
+  trade          Trade                   @relation(fields: [tradeId], references: [id])
+  tags           HistoricalMSTag[]
+  sourcePassages SourcePassage[]
+  retrievals     RetrievalResult[]
+  conflicts      ConflictRecord[]        @relation("PrecedentMS")
+
+  @@index([tradeId])
+  @@index([approvalStatus])
+}
+
+model HistoricalMSTag {
+  id                      String @id @default(cuid())
+  historicalMethodStatementId String
+  key                     String // trade, activity, safetyRiskType, etc.
+  value                   String
+  aiGenerated             Boolean @default(false)
+
+  historicalMethodStatement HistoricalMethodStatement @relation(fields: [historicalMethodStatementId], references: [id], onDelete: Cascade)
+
+  @@index([historicalMethodStatementId])
+  @@index([key, value])
+}
+
+// =============================================================================
+// PROJECT DOCUMENTS (REQ-ING)
+// =============================================================================
+
+model ProjectDocument {
+  id               String         @id @default(cuid())
+  projectId        String
+  filename         String
+  fileKey          String         // Object storage key
+  fileSize         Int
+  mimeType         String
+  documentType     DocumentType   @default(OTHER)
+  status           DocumentStatus @default(QUEUED)
+  pageCount        Int?
+  ocrUsed          Boolean        @default(false)
+  extractionErrors Json?          // Pages / sections with issues
+  uploadedAt       DateTime       @default(now())
+  processedAt      DateTime?
+  authorityRank    Int            @default(7) // 1–9 per source hierarchy
+
+  project        Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  sourcePassages SourcePassage[]
+  workerJobs     WorkerJob[]
+  referenceMarkers ReferenceMarker[]
+
+  @@index([projectId])
+  @@index([status])
+}
+
+// =============================================================================
+// SOURCE PASSAGES (REQ-TRS-DATA)
+// =============================================================================
+
+model SourcePassage {
+  id                          String  @id @default(cuid())
+  sourceDocumentId            String? // ProjectDocument FK
+  historicalMSId              String? // HistoricalMethodStatement FK
+  pageNumber                  Int?
+  sectionHeading              String?
+  extractedText               String
+  contentType                 String  @default("text") // text | table | image | diagram
+  imageStorageKey             String? // for image/diagram passages
+  embeddingModelVersion       String  // e.g. "text-embedding-004"
+  embedding                   Unsupported("vector(3072)")?
+  lastVerifiedAt              DateTime?
+  createdAt                   DateTime @default(now())
+
+  projectDocument           ProjectDocument?           @relation(fields: [sourceDocumentId], references: [id], onDelete: SetNull)
+  historicalMethodStatement HistoricalMethodStatement? @relation(fields: [historicalMSId], references: [id], onDelete: SetNull)
+  referenceMarkers          ReferenceMarker[]
+
+  @@index([sourceDocumentId])
+  @@index([historicalMSId])
+}
+
+// =============================================================================
+// RETRIEVAL RESULTS (REQ-RAG)
+// =============================================================================
+
+model RetrievalResult {
+  id                String   @id @default(cuid())
+  methodStatementId String
+  historicalMSId    String
+  score             Float
+  reason            String   // Human-readable retrieval reason
+  excluded          Boolean  @default(false) // User excluded this result
+  retrievedAt       DateTime @default(now())
+
+  methodStatement           MethodStatement           @relation(fields: [methodStatementId], references: [id], onDelete: Cascade)
+  historicalMethodStatement HistoricalMethodStatement @relation(fields: [historicalMSId], references: [id])
+
+  @@index([methodStatementId])
+}
+
+// =============================================================================
+// METHOD STATEMENTS (REQ-DRAFT, REQ-VER)
+// =============================================================================
+
+model MethodStatement {
+  id              String                @id @default(cuid())
+  projectId       String
+  tradeId         String
+  activityId      String?
+  tradePackId     String?
+  title           String
+  status          MethodStatementStatus @default(DRAFT)
+  reviewerOfRecord String?             // Named reviewer (REQ-SIGN-002)
+  briefGenerated  Boolean              @default(false)
+  briefContent    Json?                // Method Statement Brief (REQ-DRAFT-001)
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+
+  project         Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  trade           Trade               @relation(fields: [tradeId], references: [id])
+  activity        Activity?           @relation(fields: [activityId], references: [id])
+  tradePack       TradePack?          @relation(fields: [tradePackId], references: [id])
+  sections        MethodStatementSection[]
+  gapItems        GapItem[]
+  conflicts       ConflictRecord[]
+  retrievals      RetrievalResult[]
+  exports         ExportRecord[]
+  referenceMarkers ReferenceMarker[]
+  appendixRecords AppendixRecord[]
+
+  @@index([projectId])
+  @@index([tradeId])
+  @@index([status])
+}
+
+model MethodStatementSection {
+  id                String        @id @default(cuid())
+  methodStatementId String
+  sectionKey        String        // e.g. "cover", "purpose", "scope", "sequence"
+  sectionTitle      String
+  orderIndex        Int
+  status            SectionStatus @default(NOT_STARTED)
+  content           String?       // Rich text / markdown
+  specificityScore  Int?          // 0–100
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  methodStatement MethodStatement  @relation(fields: [methodStatementId], references: [id], onDelete: Cascade)
+  versions        SectionVersion[]
+  comments        Comment[]
+  visuals         Visual[]
+
+  @@unique([methodStatementId, sectionKey])
+  @@index([methodStatementId])
+}
+
+model SectionVersion {
+  id        String   @id @default(cuid())
+  sectionId String
+  version   Int
+  content   String
+  createdBy String
+  createdAt DateTime @default(now())
+  prompt    String?  // Prompt used to generate this version
+
+  section MethodStatementSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  user    User                   @relation(fields: [createdBy], references: [id])
+
+  @@index([sectionId])
+}
+
+// =============================================================================
+// GAP ANALYSIS (REQ-GAP)
+// =============================================================================
+
+model GapItem {
+  id                String        @id @default(cuid())
+  methodStatementId String
+  category          String        // scope | sequence | plant | safety | etc.
+  question          String
+  status            GapItemStatus @default(TO_BE_CONFIRMED)
+  answer            String?
+  confirmedById     String?
+  confirmedAt       DateTime?
+  sourceDocumentRef String?       // Page reference to confirming doc
+  notApplicableReason String?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  methodStatement MethodStatement @relation(fields: [methodStatementId], references: [id], onDelete: Cascade)
+  confirmedBy     User?           @relation("GapConfirmedBy", fields: [confirmedById], references: [id])
+
+  @@index([methodStatementId])
+  @@index([status])
+}
+
+// =============================================================================
+// CONFLICT DETECTION (REQ-CON)
+// =============================================================================
+
+model ConflictRecord {
+  id                String             @id @default(cuid())
+  methodStatementId String
+  conflictType      ConflictType
+  topic             String
+  currentRequirement String
+  conflictingContent String
+  currentSourceRef  String?
+  conflictingSourceRef String?
+  precedentMSId     String?
+  recommendedAction String?
+  resolution        ConflictResolution @default(UNRESOLVED)
+  resolutionNote    String?
+  resolvedAt        DateTime?
+  createdAt         DateTime           @default(now())
+
+  methodStatement           MethodStatement            @relation(fields: [methodStatementId], references: [id], onDelete: Cascade)
+  historicalMethodStatement HistoricalMethodStatement? @relation("PrecedentMS", fields: [precedentMSId], references: [id])
+
+  @@index([methodStatementId])
+  @@index([resolution])
+}
+
+// =============================================================================
+// TRACEABILITY REFERENCE SYSTEM (REQ-TRS)
+// =============================================================================
+
+model ReferenceMarker {
+  id                   String     @id @default(cuid())
+  methodStatementId    String
+  sectionId            String?
+  positionInSection    Int?       // Character offset or paragraph index
+  pool                 SourcePool
+  sourceDocumentId     String?    // ProjectDocument FK (Pool B)
+  sourcePassageId      String?    // SourcePassage FK
+  sourcePassageExcerpt String?    // ≤ 200 word excerpt
+  sourcePageOrSection  String?
+  indexNumber          Int        // Sequential display number
+  createdBy            String
+  createdAt            DateTime   @default(now())
+  deletedAt            DateTime?
+
+  methodStatement MethodStatement         @relation(fields: [methodStatementId], references: [id], onDelete: Cascade)
+  sourceDocument  ProjectDocument?        @relation(fields: [sourceDocumentId], references: [id], onDelete: SetNull)
+  sourcePassage   SourcePassage?          @relation(fields: [sourcePassageId], references: [id], onDelete: SetNull)
+  creator         User                    @relation("MarkerCreatedBy", fields: [createdBy], references: [id])
+
+  @@index([methodStatementId])
+  @@index([pool])
+}
+
+model AppendixRecord {
+  id                String     @id @default(cuid())
+  methodStatementId String
+  pool              SourcePool
+  generatedAt       DateTime   @default(now())
+  includedInExport  Boolean    @default(true)
+  exportRecordId    String?
+
+  methodStatement MethodStatement @relation(fields: [methodStatementId], references: [id], onDelete: Cascade)
+  exportRecord    ExportRecord?   @relation(fields: [exportRecordId], references: [id])
+
+  @@index([methodStatementId])
+}
+
+// =============================================================================
+// VISUALS (REQ-VIS)
+// =============================================================================
+
+model Visual {
+  id              String     @id @default(cuid())
+  sectionId       String
+  visualType      VisualType
+  title           String?
+  sourceSection   String?
+  sourceTextSnapshot String?
+  generatedPrompt String?
+  editedPrompt    String?
+  engineUsed      String?
+  engineVersion   String?
+  structuredData  Json?      // For tables and charts
+  mermaidSource   String?    // For diagrams
+  imageStorageKey String?    // For generated graphics
+  isSchematicOnly Boolean    @default(false) // REQ-VIS-004 label
+  reviewedByUser  Boolean    @default(false)
+  insertionOrder  Int?
+  generatedAt     DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  section MethodStatementSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+
+  @@index([sectionId])
+}
+
+// =============================================================================
+// WORD EXPORT (REQ-EXP)
+// =============================================================================
+
+model ExportRecord {
+  id                  String   @id @default(cuid())
+  methodStatementId   String
+  exportedBy          String
+  exportedAt          DateTime @default(now())
+  fileKey             String   // Object storage key for exported .docx
+  fileHash            String   // SHA-256 of output file
+  inputVersionSnapshot Json    // Snapshot of all input versions at export time
+  unresolvedGapCount  Int      @default(0)
+  unresolvedConflictCount Int  @default(0)
+  specificityWarnings Int      @default(0)
+  appendixAIncluded   Boolean  @default(true)
+  appendixBIncluded   Boolean  @default(true)
+  poolAMarkerCount    Int      @default(0)
+  poolBMarkerCount    Int      @default(0)
+  unresolvedItemsAppendix Boolean @default(false)
+
+  methodStatement MethodStatement  @relation(fields: [methodStatementId], references: [id])
+  exportedByUser  User             @relation(fields: [exportedBy], references: [id])
+  appendixRecords AppendixRecord[]
+
+  @@index([methodStatementId])
+}
+
+// =============================================================================
+// COMMENTS (REQ-VER-002)
+// =============================================================================
+
+model Comment {
+  id        String    @id @default(cuid())
+  sectionId String
+  authorId  String
+  content   String
+  resolved  Boolean   @default(false)
+  parentId  String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  section  MethodStatementSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  author   User                   @relation(fields: [authorId], references: [id])
+  parent   Comment?               @relation("CommentReplies", fields: [parentId], references: [id])
+  replies  Comment[]              @relation("CommentReplies")
+
+  @@index([sectionId])
+}
+
+// =============================================================================
+// BACKGROUND WORKERS
+// =============================================================================
+
+model WorkerJob {
+  id              String          @id @default(cuid())
+  jobType         String          // ingestion | embedding | gap-analysis | export
+  status          WorkerJobStatus @default(PENDING)
+  payload         Json
+  result          Json?
+  errorMessage    String?
+  attempts        Int             @default(0)
+  maxAttempts     Int             @default(3)
+  scheduledAt     DateTime        @default(now())
+  startedAt       DateTime?
+  completedAt     DateTime?
+  sourceDocumentId String?
+
+  sourceDocument ProjectDocument? @relation(fields: [sourceDocumentId], references: [id], onDelete: SetNull)
+
+  @@index([status])
+  @@index([jobType])
+}
+
+// =============================================================================
+// AUDIT LOG (REQ-NFR-SEC-004)
+// =============================================================================
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String?
+  projectId  String?
+  action     String   // e.g. "method_statement.exported", "gap_item.confirmed"
+  resourceType String?
+  resourceId String?
+  metadata   Json?
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  user    User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  project Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([projectId])
+  @@index([action])
+  @@index([createdAt])
+}
+
+// =============================================================================
+// VOCABULARY LIBRARY (REQ-VOC)
+// =============================================================================
+
+model VocabularyTerm {
+  id              String   @id @default(cuid())
+  preferredTerm   String
+  prohibitedTerms String[] // Terms that should be replaced
+  tradeScope      String[] // Trades this applies to (empty = all)
+  category        String   // plant | safety | role | section | permit | qa | general
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([preferredTerm])
+  @@index([category])
+}
+
+// =============================================================================
+// COST TRACKING (REQ-NFR-COST)
+// =============================================================================
+
+model AICostRecord {
+  id                String   @id @default(cuid())
+  methodStatementId String?
+  projectId         String?
+  provider          String   // google | anthropic | openai | etc.
+  operation         String   // embedding | drafting | document-ai | image-gen
+  inputTokens       Int?
+  outputTokens      Int?
+  embeddingUnits    Int?
+  estimatedCostGbp  Float
+  recordedAt        DateTime @default(now())
+
+  @@index([projectId])
+  @@index([recordedAt])
+}

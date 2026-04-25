@@ -1,0 +1,21 @@
+{
+  "name": "@ams/ai-engine",
+  "version": "0.1.0",
+  "private": true,
+  "exports": {
+    ".": "./src/index.ts",
+    "./embedding": "./src/embedding/index.ts",
+    "./llm": "./src/llm/index.ts",
+    "./document-ai": "./src/document-ai/index.ts",
+    "./specificity": "./src/specificity/index.ts"
+  },
+  "dependencies": {
+    "@google/generative-ai": "^0.21.0",
+    "@anthropic-ai/sdk": "^0.33.0",
+    "@ams/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0",
+    "@types/node": "^22.0.0"
+  }
+}
