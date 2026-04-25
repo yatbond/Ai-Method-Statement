@@ -11,6 +11,7 @@ import { processEmbedding } from "./processors/embedding";
 import { processTagging } from "./processors/tagging";
 import { processGapAnalysis } from "./processors/gap-analysis";
 import { processConflictDetection } from "./processors/conflict-detection";
+import { processDraft } from "./processors/draft";
 
 const concurrency = parseInt(process.env.WORKER_CONCURRENCY ?? "5");
 
@@ -53,6 +54,7 @@ const workers = [
   createWorker("document.tag", processTagging, 3),
   createWorker("gap-analysis.run", processGapAnalysis, 2),
   createWorker("conflict.detect", processConflictDetection, 2),
+  createWorker("draft.section", processDraft, 2),
 ];
 
 async function shutdown() {

@@ -5,3 +5,4 @@ export * from "./specificity/index";
 export * from "./retrieval/index";
 export * from "./gap-analysis/index";
 export * from "./conflict-detection/index";
+export * from "./drafting/index";
