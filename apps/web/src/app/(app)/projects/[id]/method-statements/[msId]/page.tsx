@@ -51,6 +51,15 @@ export default async function MethodStatementPage({
         },
         gapItems: {
           orderBy: { createdAt: "asc" },
+          select: {
+            id: true,
+            category: true,
+            question: true,
+            status: true,
+            answer: true,
+            sourceDocumentRef: true,
+            notApplicableReason: true,
+          },
         },
         conflicts: {
           where: { resolution: "UNRESOLVED" },
@@ -187,10 +196,8 @@ export default async function MethodStatementPage({
             initialResults={retrievalResults as any}
           />
 
-          {/* Gap analysis */}
-          {ms.gapItems.length > 0 && (
-            <GapAnalysisPanel gapItems={ms.gapItems} methodStatementId={ms.id} />
-          )}
+          {/* Gap analysis (REQ-GAP-001 to REQ-GAP-005) */}
+          <GapAnalysisPanel gapItems={ms.gapItems as any} methodStatementId={ms.id} />
 
           {/* Sections */}
           {STANDARD_SECTIONS.map((def) => {

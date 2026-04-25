@@ -9,6 +9,7 @@ import { processIngestion } from "./processors/ingestion";
 import { processHistoricalMSIngestion } from "./processors/historical-ms-ingestion";
 import { processEmbedding } from "./processors/embedding";
 import { processTagging } from "./processors/tagging";
+import { processGapAnalysis } from "./processors/gap-analysis";
 
 const concurrency = parseInt(process.env.WORKER_CONCURRENCY ?? "5");
 
@@ -49,6 +50,7 @@ const workers = [
   createWorker("document.ingest", ingestDispatcher, 3),
   createWorker("document.embed", processEmbedding, 5),
   createWorker("document.tag", processTagging, 3),
+  createWorker("gap-analysis.run", processGapAnalysis, 2),
 ];
 
 async function shutdown() {
@@ -63,5 +65,5 @@ process.on("SIGTERM", shutdown);
 process.on("SIGINT", shutdown);
 
 console.log(
-  "Worker service started. Processing queues: document.ingest (+ historical-ms.ingest), document.embed, document.tag"
+  "Worker service started. Queues: document.ingest, document.embed, document.tag, gap-analysis.run"
 );
