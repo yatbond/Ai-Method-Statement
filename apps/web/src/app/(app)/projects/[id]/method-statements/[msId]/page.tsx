@@ -4,6 +4,7 @@ import { db } from "@ams/database";
 import Link from "next/link";
 import GapAnalysisPanel from "@/components/method-statements/gap-analysis-panel";
 import ConflictPanel from "@/components/method-statements/conflict-panel";
+import TraceabilityPanel from "@/components/method-statements/traceability-panel";
 import SectionEditor from "@/components/method-statements/section-editor";
 import SimilarMSBrowser from "@/components/method-statements/similar-ms-browser";
 import { STANDARD_SECTIONS } from "@ams/shared";
@@ -30,7 +31,7 @@ export default async function MethodStatementPage({
   const session = await auth();
   const userId = (session?.user as any)?.id as string;
 
-  const [ms, retrievalResults, conflictRecords] = await Promise.all([
+  const [ms, retrievalResults, conflictRecords, referenceMarkers] = await Promise.all([
     db.methodStatement.findFirst({
       where: {
         id: msId,
@@ -103,6 +104,29 @@ export default async function MethodStatementPage({
         resolution: true,
         resolutionNote: true,
         historicalMethodStatement: { select: { title: true } },
+      },
+    }),
+    db.referenceMarker.findMany({
+      where: { methodStatementId: msId, deletedAt: null },
+      orderBy: [{ pool: "asc" }, { indexNumber: "asc" }],
+      select: {
+        id: true,
+        indexNumber: true,
+        pool: true,
+        sectionId: true,
+        sourcePageOrSection: true,
+        sourcePassageExcerpt: true,
+        sourceDocument: {
+          select: { id: true, title: true, documentType: true, authorityRank: true },
+        },
+        sourcePassage: {
+          select: {
+            id: true,
+            extractedText: true,
+            pageNumber: true,
+            historicalMethodStatement: { select: { title: true } },
+          },
+        },
       },
     }),
   ]);
@@ -219,6 +243,12 @@ export default async function MethodStatementPage({
 
           {/* Conflict detection (REQ-CON-001 to REQ-CON-005) */}
           <ConflictPanel conflicts={conflictRecords as any} methodStatementId={ms.id} />
+
+          {/* Source traceability (REQ-TRS, Phase 5) */}
+          <TraceabilityPanel
+            initialMarkers={referenceMarkers as any}
+            methodStatementId={ms.id}
+          />
 
           {/* Sections */}
           {STANDARD_SECTIONS.map((def) => {
