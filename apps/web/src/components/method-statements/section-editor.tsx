@@ -8,8 +8,9 @@
 // specificity scores. All content is fully editable (REQ-P5).
 // =============================================================================
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { cn } from "@/lib/utils";
+import SpecificityHints from "./specificity-hints";
 
 interface Section {
   id: string;
@@ -41,6 +42,12 @@ export default function SectionEditor({
   const [editing, setEditing] = useState(false);
   const [editContent, setEditContent] = useState("");
   const [saving, setSaving] = useState(false);
+  const [specificityResult, setSpecificityResult] = useState<{
+    score: number;
+    issues: any[];
+    wordCount?: number;
+  } | null>(null);
+  const [checkingSpecificity, setCheckingSpecificity] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
@@ -82,6 +89,7 @@ export default function SectionEditor({
             setSection(data);
             setDrafting(false);
             if (pollRef.current) clearInterval(pollRef.current);
+            if (data?.content) checkSpecificity(data.content);
           }
         }
       }, 3000);
@@ -115,11 +123,36 @@ export default function SectionEditor({
         const updated = await res.json();
         setSection((prev) => ({ ...prev!, content: updated.content, status: updated.status }));
         setEditing(false);
+        // Auto-check specificity after save
+        checkSpecificity(editContent);
       }
     } finally {
       setSaving(false);
     }
   }
+
+  const checkSpecificity = useCallback(
+    async (contentToCheck: string) => {
+      setCheckingSpecificity(true);
+      try {
+        const res = await fetch(
+          `/api/method-statements/${methodStatementId}/sections/${sectionKey}/specificity`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ content: contentToCheck }),
+          }
+        );
+        if (res.ok) {
+          const data = await res.json();
+          setSpecificityResult(data);
+        }
+      } finally {
+        setCheckingSpecificity(false);
+      }
+    },
+    [methodStatementId, sectionKey]
+  );
 
   // Render [GAP: ...] in red, [SRC:...] in muted
   function renderContent(content: string) {
@@ -236,7 +269,23 @@ export default function SectionEditor({
                 className="prose prose-sm max-w-none text-gray-700 min-h-16 p-4 rounded-lg border border-gray-100 bg-gray-50 [&_.gap-marker]:bg-red-100 [&_.gap-marker]:text-red-700 [&_.gap-marker]:px-1 [&_.gap-marker]:rounded [&_.gap-marker]:text-xs [&_.gap-marker]:font-medium"
                 dangerouslySetInnerHTML={{ __html: renderContent(section.content) }}
               />
+
+              {specificityResult && (
+                <SpecificityHints
+                  score={specificityResult.score}
+                  issues={specificityResult.issues}
+                  wordCount={specificityResult.wordCount}
+                />
+              )}
+
               <div className="flex items-center gap-2 justify-end">
+                <button
+                  onClick={() => checkSpecificity(section.content!)}
+                  disabled={checkingSpecificity}
+                  className="text-xs text-gray-500 hover:text-gray-700 px-3 py-1.5 rounded-lg border border-gray-200 hover:border-gray-300 disabled:opacity-50 transition-colors"
+                >
+                  {checkingSpecificity ? "Checking…" : "Check specificity"}
+                </button>
                 <button
                   onClick={() => {
                     setEditContent(section.content ?? "");
