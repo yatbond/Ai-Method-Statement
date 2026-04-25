@@ -6,3 +6,4 @@ export * from "./retrieval/index";
 export * from "./gap-analysis/index";
 export * from "./conflict-detection/index";
 export * from "./drafting/index";
+export * from "./export/word-exporter";
