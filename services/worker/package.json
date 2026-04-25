@@ -12,6 +12,7 @@
     "@ams/ai-engine": "workspace:*",
     "@ams/database": "workspace:*",
     "@ams/shared": "workspace:*",
+    "@ams/storage": "workspace:*",
     "bullmq": "^5.0.0",
     "ioredis": "^5.0.0"
   },

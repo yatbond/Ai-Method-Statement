@@ -61,12 +61,20 @@ export default async function ProjectPage({
               <p className="mt-1 text-sm text-gray-500">{project.description}</p>
             )}
           </div>
-          <Link
-            href={`/projects/${id}/method-statements/new`}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-brand-600 text-white text-sm font-medium hover:bg-brand-700 transition-colors"
-          >
-            <span>+ New Method Statement</span>
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link
+              href={`/projects/${id}/documents`}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-300 text-gray-700 text-sm font-medium hover:bg-gray-50 transition-colors"
+            >
+              Documents
+            </Link>
+            <Link
+              href={`/projects/${id}/method-statements/new`}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-brand-600 text-white text-sm font-medium hover:bg-brand-700 transition-colors"
+            >
+              + New Method Statement
+            </Link>
+          </div>
         </div>
       </div>
 
@@ -117,11 +125,21 @@ export default async function ProjectPage({
         {/* Sidebar: documents + team */}
         <div className="space-y-6">
           <div>
-            <h2 className="text-sm font-medium text-gray-900 uppercase tracking-wide mb-3">
-              Recent Documents
-            </h2>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-sm font-medium text-gray-900 uppercase tracking-wide">
+                Recent Documents
+              </h2>
+              <Link href={`/projects/${id}/documents`} className="text-xs text-brand-600 hover:underline">
+                Manage →
+              </Link>
+            </div>
             {project.documents.length === 0 ? (
-              <p className="text-xs text-gray-400">No documents uploaded.</p>
+              <Link
+                href={`/projects/${id}/documents`}
+                className="block text-xs text-brand-600 hover:underline"
+              >
+                Upload documents →
+              </Link>
             ) : (
               <div className="space-y-1.5">
                 {project.documents.map((doc) => (

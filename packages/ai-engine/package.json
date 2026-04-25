@@ -12,7 +12,12 @@
   "dependencies": {
     "@google/generative-ai": "^0.21.0",
     "@anthropic-ai/sdk": "^0.33.0",
-    "@ams/shared": "workspace:*"
+    "@ams/shared": "workspace:*",
+    "pdf-parse": "^1.1.1",
+    "mammoth": "^1.8.0"
+  },
+  "optionalDependencies": {
+    "openai": "^4.77.0"
   },
   "devDependencies": {
     "typescript": "^5.7.0",

@@ -13,6 +13,7 @@
     "@ams/database": "workspace:*",
     "@ams/shared": "workspace:*",
     "@ams/ai-engine": "workspace:*",
+    "@ams/storage": "workspace:*",
     "next": "^15.1.0",
     "next-auth": "^5.0.0-beta.25",
     "react": "^19.0.0",

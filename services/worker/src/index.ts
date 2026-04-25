@@ -1,44 +1,51 @@
 // =============================================================================
-// Worker service entry point
-//
-// Registers BullMQ workers for all background job types.
-// All jobs are idempotent and expose visible status (REQ architecture §9.2).
+// Worker service — BullMQ worker registration
+// All jobs are idempotent and expose visible status (§9.2)
 // =============================================================================
 
 import { Worker } from "bullmq";
 import { connection } from "./queues";
 import { processIngestion } from "./processors/ingestion";
 import { processEmbedding } from "./processors/embedding";
+import { processTagging } from "./processors/tagging";
 
-function createWorker(queueName: string, processor: (job: any) => Promise<any>) {
+const concurrency = parseInt(process.env.WORKER_CONCURRENCY ?? "5");
+
+function createWorker(
+  queueName: string,
+  processor: (job: any) => Promise<any>,
+  workerConcurrency = concurrency
+) {
   const worker = new Worker(queueName, processor, {
     connection,
-    concurrency: parseInt(process.env.WORKER_CONCURRENCY ?? "5"),
+    concurrency: workerConcurrency,
   });
 
-  worker.on("completed", (job) => {
-    console.log(`[${queueName}] Job ${job.id} completed`);
+  worker.on("completed", (job, result) => {
+    console.log(`[${queueName}] ✓ Job ${job.id} completed`, JSON.stringify(result ?? {}).slice(0, 120));
   });
 
   worker.on("failed", (job, err) => {
-    console.error(`[${queueName}] Job ${job?.id} failed:`, err.message);
+    console.error(`[${queueName}] ✗ Job ${job?.id} failed: ${err.message}`);
   });
 
   worker.on("progress", (job, progress) => {
-    console.log(`[${queueName}] Job ${job.id} progress: ${progress}%`);
+    console.log(`[${queueName}] Job ${job.id} ${progress}%`);
   });
 
   return worker;
 }
 
 const workers = [
-  createWorker("document.ingest", processIngestion),
-  createWorker("document.embed", processEmbedding),
+  createWorker("document.ingest", processIngestion, 3),
+  createWorker("document.embed", processEmbedding, 5),
+  createWorker("document.tag", processTagging, 3),
 ];
 
 async function shutdown() {
-  console.log("Shutting down workers...");
+  console.log("Shutting down workers…");
   await Promise.all(workers.map((w) => w.close()));
+  await connection.quit();
   console.log("Workers stopped.");
   process.exit(0);
 }
@@ -46,4 +53,6 @@ async function shutdown() {
 process.on("SIGTERM", shutdown);
 process.on("SIGINT", shutdown);
 
-console.log(`Worker service started. Listening on ${workers.length} queues.`);
+console.log(
+  `Worker service started. Processing queues: document.ingest, document.embed, document.tag`
+);
