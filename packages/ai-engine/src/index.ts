@@ -7,3 +7,6 @@ export * from "./gap-analysis/index";
 export * from "./conflict-detection/index";
 export * from "./drafting/index";
 export * from "./export/word-exporter";
+export * from "./safety/index";
+export * from "./eval/hallucination-check";
+export * from "./eval/cost-tracker";
