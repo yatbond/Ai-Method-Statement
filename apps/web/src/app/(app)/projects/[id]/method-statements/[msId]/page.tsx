@@ -7,6 +7,7 @@ import ConflictPanel from "@/components/method-statements/conflict-panel";
 import TraceabilityPanel from "@/components/method-statements/traceability-panel";
 import SectionEditor from "@/components/method-statements/section-editor";
 import SimilarMSBrowser from "@/components/method-statements/similar-ms-browser";
+import ApprovalPanel from "@/components/method-statements/approval-panel";
 import { STANDARD_SECTIONS } from "@ams/shared";
 
 export async function generateMetadata({
@@ -40,6 +41,7 @@ export default async function MethodStatementPage({
       include: {
         trade: { select: { id: true, name: true } },
         activity: { select: { name: true } },
+        reviewerOfRecord: true,
         sections: {
           orderBy: { orderIndex: "asc" },
           select: {
@@ -248,6 +250,14 @@ export default async function MethodStatementPage({
           <TraceabilityPanel
             initialMarkers={referenceMarkers as any}
             methodStatementId={ms.id}
+          />
+
+          {/* Approval workflow (REQ-SIGN-002, REQ-SIGN-003, P12) */}
+          <ApprovalPanel
+            methodStatementId={ms.id}
+            initialStatus={ms.status as any}
+            initialReviewerOfRecord={ms.reviewerOfRecord}
+            currentUserName={(session?.user as any)?.name}
           />
 
           {/* Sections */}

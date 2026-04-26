@@ -10,6 +10,7 @@ import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { db } from "@ams/database";
 import Link from "next/link";
+import SequenceDiagram from "@/components/method-statements/sequence-diagram";
 
 export const metadata = { title: "Trade Packs — AMS Studio" };
 
@@ -109,41 +110,51 @@ export default async function TradePacksPage() {
                 )}
 
                 {pack && (
-                  <div className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-gray-100">
-                    {/* Required fields */}
-                    <div className="px-5 py-4">
-                      <p className="text-xs font-medium text-gray-500 mb-2">Required fields ({requiredFields.length})</p>
-                      {requiredFields.slice(0, 5).map((f: string, i: number) => (
-                        <p key={i} className="text-xs text-gray-600 leading-5">• {f}</p>
-                      ))}
-                      {requiredFields.length > 5 && (
-                        <p className="text-xs text-gray-400 mt-1">+{requiredFields.length - 5} more</p>
-                      )}
-                      {requiredFields.length === 0 && <p className="text-xs text-gray-400">None defined</p>}
-                    </div>
+                  <div className="divide-y divide-gray-100">
+                    {/* Typical sequence diagram */}
+                    {typicalSequences.length > 0 && (
+                      <div className="px-5 py-4">
+                        <p className="text-xs font-medium text-gray-500 mb-3">Typical sequence</p>
+                        <SequenceDiagram steps={typicalSequences} compact />
+                      </div>
+                    )}
 
-                    {/* Safety hazards */}
-                    <div className="px-5 py-4">
-                      <p className="text-xs font-medium text-gray-500 mb-2">Safety hazards ({safetyHazards.length})</p>
-                      {safetyHazards.slice(0, 5).map((h: string, i: number) => (
-                        <p key={i} className="text-xs text-gray-600 leading-5">• {h}</p>
-                      ))}
-                      {safetyHazards.length > 5 && (
-                        <p className="text-xs text-gray-400 mt-1">+{safetyHazards.length - 5} more</p>
-                      )}
-                      {safetyHazards.length === 0 && <p className="text-xs text-gray-400">None defined</p>}
-                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-gray-100">
+                      {/* Required fields */}
+                      <div className="px-5 py-4">
+                        <p className="text-xs font-medium text-gray-500 mb-2">Required fields ({requiredFields.length})</p>
+                        {requiredFields.slice(0, 5).map((f: string, i: number) => (
+                          <p key={i} className="text-xs text-gray-600 leading-5">• {f}</p>
+                        ))}
+                        {requiredFields.length > 5 && (
+                          <p className="text-xs text-gray-400 mt-1">+{requiredFields.length - 5} more</p>
+                        )}
+                        {requiredFields.length === 0 && <p className="text-xs text-gray-400">None defined</p>}
+                      </div>
 
-                    {/* Gap questions */}
-                    <div className="px-5 py-4">
-                      <p className="text-xs font-medium text-gray-500 mb-2">Gap questions ({gapQuestions.length})</p>
-                      {gapQuestions.slice(0, 5).map((q, i: number) => (
-                        <p key={i} className="text-xs text-gray-600 leading-5 truncate">• {q.question}</p>
-                      ))}
-                      {gapQuestions.length > 5 && (
-                        <p className="text-xs text-gray-400 mt-1">+{gapQuestions.length - 5} more</p>
-                      )}
-                      {gapQuestions.length === 0 && <p className="text-xs text-gray-400">None defined</p>}
+                      {/* Safety hazards */}
+                      <div className="px-5 py-4">
+                        <p className="text-xs font-medium text-gray-500 mb-2">Safety hazards ({safetyHazards.length})</p>
+                        {safetyHazards.slice(0, 5).map((h: string, i: number) => (
+                          <p key={i} className="text-xs text-gray-600 leading-5">• {h}</p>
+                        ))}
+                        {safetyHazards.length > 5 && (
+                          <p className="text-xs text-gray-400 mt-1">+{safetyHazards.length - 5} more</p>
+                        )}
+                        {safetyHazards.length === 0 && <p className="text-xs text-gray-400">None defined</p>}
+                      </div>
+
+                      {/* Gap questions */}
+                      <div className="px-5 py-4">
+                        <p className="text-xs font-medium text-gray-500 mb-2">Gap questions ({gapQuestions.length})</p>
+                        {gapQuestions.slice(0, 5).map((q, i: number) => (
+                          <p key={i} className="text-xs text-gray-600 leading-5 truncate">• {q.question}</p>
+                        ))}
+                        {gapQuestions.length > 5 && (
+                          <p className="text-xs text-gray-400 mt-1">+{gapQuestions.length - 5} more</p>
+                        )}
+                        {gapQuestions.length === 0 && <p className="text-xs text-gray-400">None defined</p>}
+                      </div>
                     </div>
                   </div>
                 )}
