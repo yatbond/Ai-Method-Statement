@@ -13,6 +13,8 @@ import { cn } from "@/lib/utils";
 import SpecificityHints from "./specificity-hints";
 import CitationViewer from "./citation-viewer";
 import SectionComments from "./section-comments";
+import SectionVersionHistory from "./section-version-history";
+import VisualAttachments from "./visual-attachments";
 
 interface Section {
   id: string;
@@ -306,6 +308,17 @@ export default function SectionEditor({
           {section?.id && (
             <SectionComments sectionId={section.id} currentUserId={currentUserId} />
           )}
+          {/* Version history — restore previous drafts */}
+          {section?.id && (
+            <SectionVersionHistory
+              sectionId={section.id}
+              onRestored={(content) => {
+                setSection((prev) => prev ? { ...prev, content, status: "DRAFT" } : prev);
+              }}
+            />
+          )}
+          {/* Diagram attachments (REQ-VIS-004) */}
+          {section?.id && <VisualAttachments sectionId={section.id} />}
         </div>
       )}
     </div>

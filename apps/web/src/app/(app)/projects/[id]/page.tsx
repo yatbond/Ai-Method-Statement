@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { db } from "@ams/database";
 import Link from "next/link";
 import { formatDate } from "@/lib/utils";
+import TeamManager from "@/components/projects/team-manager";
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -169,19 +170,17 @@ export default async function ProjectPage({
             <h2 className="text-sm font-medium text-gray-900 uppercase tracking-wide mb-3">
               Team ({project.members.length})
             </h2>
-            <div className="space-y-2">
-              {project.members.map((m) => (
-                <div key={m.userId} className="flex items-center gap-2.5">
-                  <div className="w-7 h-7 rounded-full bg-brand-100 flex items-center justify-center text-xs font-medium text-brand-700">
-                    {m.user.name.charAt(0).toUpperCase()}
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-xs font-medium text-gray-900 truncate">{m.user.name}</p>
-                    <p className="text-xs text-gray-400 capitalize">{m.role.toLowerCase()}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
+            <TeamManager
+              projectId={id}
+              initialMembers={project.members.map((m) => ({
+                id: m.id,
+                role: m.role as any,
+                createdAt: m.createdAt.toISOString(),
+                user: { id: m.user.id, name: m.user.name, email: m.user.email, image: null },
+              }))}
+              currentUserId={userId}
+              currentUserRole={(project.members.find((m) => m.userId === userId)?.role ?? "VIEWER") as any}
+            />
           </div>
         </div>
       </div>
