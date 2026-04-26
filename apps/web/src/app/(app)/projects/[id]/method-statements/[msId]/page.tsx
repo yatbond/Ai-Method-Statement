@@ -8,6 +8,7 @@ import TraceabilityPanel from "@/components/method-statements/traceability-panel
 import SectionEditor from "@/components/method-statements/section-editor";
 import SimilarMSBrowser from "@/components/method-statements/similar-ms-browser";
 import ApprovalPanel from "@/components/method-statements/approval-panel";
+import BriefPanel from "@/components/method-statements/brief-panel";
 import { STANDARD_SECTIONS } from "@ams/shared";
 
 export async function generateMetadata({
@@ -252,6 +253,9 @@ export default async function MethodStatementPage({
             methodStatementId={ms.id}
           />
 
+          {/* Method Statement Brief (REQ-DRAFT-001) */}
+          <BriefPanel methodStatementId={ms.id} />
+
           {/* Approval workflow (REQ-SIGN-002, REQ-SIGN-003, P12) */}
           <ApprovalPanel
             methodStatementId={ms.id}
@@ -270,6 +274,7 @@ export default async function MethodStatementPage({
                 sectionTitle={def.title}
                 section={section ?? null}
                 methodStatementId={ms.id}
+                currentUserId={userId}
               />
             );
           })}

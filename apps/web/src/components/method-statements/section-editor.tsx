@@ -12,6 +12,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { cn } from "@/lib/utils";
 import SpecificityHints from "./specificity-hints";
 import CitationViewer from "./citation-viewer";
+import SectionComments from "./section-comments";
 
 interface Section {
   id: string;
@@ -28,6 +29,7 @@ interface Props {
   sectionTitle: string;
   section: Section | null;
   methodStatementId: string;
+  currentUserId?: string;
 }
 
 export default function SectionEditor({
@@ -35,6 +37,7 @@ export default function SectionEditor({
   sectionTitle,
   section: initialSection,
   methodStatementId,
+  currentUserId,
 }: Props) {
   const [section, setSection] = useState<Section | null>(initialSection);
   const [expanded, setExpanded] = useState(false);
@@ -298,6 +301,10 @@ export default function SectionEditor({
                 </button>
               </div>
             </div>
+          )}
+          {/* Section comments — always visible when expanded */}
+          {section?.id && (
+            <SectionComments sectionId={section.id} currentUserId={currentUserId} />
           )}
         </div>
       )}

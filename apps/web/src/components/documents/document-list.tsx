@@ -183,10 +183,10 @@ export default function DocumentList({ projectId, initialDocuments }: Props) {
 
                 {doc.status === "COMPLETE" && (
                   <a
-                    href={`/api/projects/${projectId}/documents/${doc.id}/passages`}
+                    href={`/projects/${projectId}/documents/${doc.id}`}
                     className="inline-block text-xs text-brand-600 hover:underline"
                   >
-                    View extracted passages →
+                    Browse extracted passages →
                   </a>
                 )}
               </div>
