@@ -125,8 +125,9 @@ model Organisation {
 }
 
 model User {
-  id             String   @id @default(cuid())
-  email          String   @unique
+  id             String    @id @default(cuid())
+  clerkUserId    String?   @unique
+  email          String    @unique
   name           String
   organisationId String
   createdAt      DateTime @default(now())
