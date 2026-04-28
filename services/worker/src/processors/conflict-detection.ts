@@ -7,8 +7,7 @@
 
 import type { Job } from "bullmq";
 import { db } from "@ams/database";
-import { detectConflicts, type ConflictPassage } from "@ams/ai-engine";
-import { AnthropicLLMProvider } from "@ams/ai-engine";
+import { detectConflicts, type ConflictPassage, createLLMProvider, getLLMConfigFromEnv } from "@ams/ai-engine";
 import { CostTrackingLLMProvider } from "../lib/cost-tracking";
 
 export async function processConflictDetection(
@@ -93,11 +92,8 @@ export async function processConflictDetection(
       }))
     );
 
-    const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (!apiKey) throw new Error("ANTHROPIC_API_KEY not configured");
-
     const llm = new CostTrackingLLMProvider(
-      new AnthropicLLMProvider(apiKey),
+      createLLMProvider(getLLMConfigFromEnv()),
       { operation: "conflict-detection", methodStatementId, projectId: ms.project.id }
     );
 

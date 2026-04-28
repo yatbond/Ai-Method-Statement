@@ -3,16 +3,31 @@
 // All jobs are idempotent and expose visible status (§9.2)
 // =============================================================================
 
+import "dotenv/config";
 import { Worker } from "bullmq";
 import { connection } from "./queues";
 
 // ── Environment validation (fail-fast on missing required config) ─────────────
 function validateEnv() {
   const required: Record<string, string> = {
-    ANTHROPIC_API_KEY: "LLM drafting and AI analysis",
     DATABASE_URL:      "PostgreSQL database connection",
     REDIS_URL:         "BullMQ job queue",
   };
+
+  // At least one LLM provider must be configured
+  const llmProvider = process.env.LLM_PROVIDER ?? "anthropic";
+  const llmKeyMap: Record<string, string> = {
+    anthropic: "ANTHROPIC_API_KEY",
+    openai:    "OPENAI_API_KEY",
+    ollama:    "OLLAMA_API_KEY",
+  };
+  const requiredLlmKey = llmKeyMap[llmProvider];
+  if (!requiredLlmKey) {
+    throw new Error(`Unknown LLM_PROVIDER: ${llmProvider}. Must be anthropic, openai, or ollama.`);
+  }
+  if (!process.env[requiredLlmKey]) {
+    throw new Error(`${requiredLlmKey} not configured (LLM_PROVIDER=${llmProvider})`);
+  }
 
   const optional: Record<string, string> = {
     GOOGLE_API_KEY:        "Google Document AI and Gemini embeddings",

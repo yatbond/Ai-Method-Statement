@@ -67,15 +67,58 @@ export class OpenAILLMProvider implements LLMProvider {
   readonly model: string;
 
   private readonly apiKey: string;
+  private readonly baseURL?: string;
 
-  constructor(apiKey: string, model = "gpt-4o") {
+  constructor(apiKey: string, model = "gpt-4o", baseURL?: string) {
     this.apiKey = apiKey;
     this.model = model;
+    this.baseURL = baseURL;
   }
 
   async complete(request: LLMRequest): Promise<LLMResponse> {
     const OpenAI = (await import("openai")).default;
-    const client = new OpenAI({ apiKey: this.apiKey });
+    const client = new OpenAI({ apiKey: this.apiKey, ...(this.baseURL && { baseURL: this.baseURL }) });
+
+    const response = await client.chat.completions.create({
+      model: this.model,
+      max_tokens: request.maxTokens ?? 4096,
+      temperature: request.temperature ?? 0.3,
+      messages: request.messages,
+      stop: request.stopSequences,
+    });
+
+    const content = response.choices[0]?.message.content ?? "";
+
+    return {
+      content,
+      usage: {
+        inputTokens: response.usage?.prompt_tokens ?? 0,
+        outputTokens: response.usage?.completion_tokens ?? 0,
+      },
+      provider: this.provider,
+      model: this.model,
+    };
+  }
+}
+
+// ── Ollama Cloud (OpenAI-compatible) ──────────────────────────────────────────
+
+export class OllamaLLMProvider implements LLMProvider {
+  readonly provider = "ollama";
+  readonly model: string;
+
+  private readonly apiKey: string;
+  private readonly baseURL: string;
+
+  constructor(apiKey: string, model: string, baseURL = "https://ollama.com/v1") {
+    this.apiKey = apiKey;
+    this.model = model;
+    this.baseURL = baseURL;
+  }
+
+  async complete(request: LLMRequest): Promise<LLMResponse> {
+    const OpenAI = (await import("openai")).default;
+    const client = new OpenAI({ apiKey: this.apiKey, baseURL: this.baseURL });
 
     const response = await client.chat.completions.create({
       model: this.model,
@@ -102,9 +145,10 @@ export class OpenAILLMProvider implements LLMProvider {
 // ── Provider factory ──────────────────────────────────────────────────────────
 
 export function createLLMProvider(config: {
-  provider?: "anthropic" | "openai";
+  provider?: "anthropic" | "openai" | "ollama";
   apiKey: string;
   model?: string;
+  baseURL?: string;
 }): LLMProvider {
   const { provider = "anthropic", apiKey, model } = config;
 
@@ -112,9 +156,46 @@ export function createLLMProvider(config: {
     case "anthropic":
       return new AnthropicLLMProvider(apiKey, model);
     case "openai":
-      return new OpenAILLMProvider(apiKey, model);
+      return new OpenAILLMProvider(apiKey, model, config.baseURL);
+    case "ollama":
+      if (!model) throw new Error("OLLAMA_MODEL is required when using Ollama provider");
+      return new OllamaLLMProvider(apiKey, model, config.baseURL);
     default:
       throw new Error(`Unknown LLM provider: ${provider}`);
+  }
+}
+
+// ── Shared config helper — resolves LLM settings from env vars ────────────────
+
+export function getLLMConfigFromEnv(): {
+  provider: "anthropic" | "openai" | "ollama";
+  apiKey: string;
+  model?: string;
+  baseURL?: string;
+} {
+  const provider = (process.env.LLM_PROVIDER as "anthropic" | "openai" | "ollama") ?? "anthropic";
+
+  switch (provider) {
+    case "ollama": {
+      const apiKey = process.env.OLLAMA_API_KEY ?? "";
+      if (!apiKey) throw new Error("OLLAMA_API_KEY not configured");
+      return {
+        provider,
+        apiKey,
+        model: process.env.OLLAMA_MODEL,
+        baseURL: process.env.OLLAMA_BASE_URL,
+      };
+    }
+    case "openai": {
+      const apiKey = process.env.OPENAI_API_KEY ?? "";
+      if (!apiKey) throw new Error("OPENAI_API_KEY not configured");
+      return { provider, apiKey, model: process.env.LLM_MODEL };
+    }
+    default: {
+      const apiKey = process.env.ANTHROPIC_API_KEY ?? "";
+      if (!apiKey) throw new Error("ANTHROPIC_API_KEY not configured");
+      return { provider, apiKey, model: process.env.LLM_MODEL };
+    }
   }
 }
 

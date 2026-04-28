@@ -24,7 +24,7 @@ services/
 | Layer | Choice | Notes |
 |---|---|---|
 | Frontend | Next.js 14 + React 18 + Tailwind v4 | App Router, server components |
-| Auth | NextAuth.js v5 | SAML/OIDC SSO to Azure AD |
+| Auth | Clerk (`@clerk/nextjs`) | Email + password; session via clerkMiddleware; user sync via webhook |
 | Database | PostgreSQL 16 + pgvector | Prisma ORM, vector extension |
 | Vector store | pgvector (initial) | Abstracted; pluggable to managed service |
 | File storage | S3-compatible (AWS/MinIO) | Per-project access control, versioned |

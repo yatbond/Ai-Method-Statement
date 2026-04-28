@@ -12,7 +12,7 @@
 
 import type { Job } from "bullmq";
 import { db, DocumentStatus } from "@ams/database";
-import { createDocumentAIProvider } from "@ams/ai-engine";
+import { createDocumentAIProviderAsync, getDocumentAIConfigFromEnv } from "@ams/ai-engine";
 import { createStorageProvider } from "@ams/storage";
 import { embeddingQueue } from "../queues";
 import { taggingQueue } from "../queues";
@@ -44,7 +44,7 @@ export async function processIngestion(job: Job<{ documentId: string }>) {
     await job.updateProgress(15);
 
     // Step 2: Extract content
-    const docAI = createDocumentAIProvider({ provider: "native" });
+    const docAI = await createDocumentAIProviderAsync(getDocumentAIConfigFromEnv());
     const extraction = await docAI.extract(fileBuffer, document.mimeType);
 
     await job.updateProgress(50);

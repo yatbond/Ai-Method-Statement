@@ -9,8 +9,7 @@
 
 import type { Job } from "bullmq";
 import { db } from "@ams/database";
-import { detectGaps, type PassageContext } from "@ams/ai-engine";
-import { AnthropicLLMProvider } from "@ams/ai-engine";
+import { detectGaps, type PassageContext, createLLMProvider, getLLMConfigFromEnv } from "@ams/ai-engine";
 import { CostTrackingLLMProvider } from "../lib/cost-tracking";
 
 export async function processGapAnalysis(
@@ -113,11 +112,8 @@ export async function processGapAnalysis(
       }))
     );
 
-    const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (!apiKey) throw new Error("ANTHROPIC_API_KEY not configured");
-
     const llm = new CostTrackingLLMProvider(
-      new AnthropicLLMProvider(apiKey),
+      createLLMProvider(getLLMConfigFromEnv()),
       { operation: "gap-analysis", methodStatementId, projectId: ms.project.id }
     );
 

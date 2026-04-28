@@ -8,8 +8,8 @@
 
 import type { Job } from "bullmq";
 import { db } from "@ams/database";
-import { draftSection, type SourcePassageForDraft } from "@ams/ai-engine";
-import { AnthropicLLMProvider, buildMethodStatementBrief } from "@ams/ai-engine";
+import { draftSection, type SourcePassageForDraft, createLLMProvider, getLLMConfigFromEnv } from "@ams/ai-engine";
+import { buildMethodStatementBrief } from "@ams/ai-engine";
 import { analyseSpecificity } from "@ams/ai-engine";
 import type { SectionKey } from "@ams/shared";
 import { CostTrackingLLMProvider } from "../lib/cost-tracking";
@@ -162,11 +162,8 @@ export async function processDraft(job: Job<DraftJobPayload>) {
     const { STANDARD_SECTIONS } = await import("@ams/shared");
     const sectionDef = STANDARD_SECTIONS.find((s) => s.key === sectionKey);
 
-    const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (!apiKey) throw new Error("ANTHROPIC_API_KEY not configured");
-
     const llm = new CostTrackingLLMProvider(
-      new AnthropicLLMProvider(apiKey),
+      createLLMProvider(getLLMConfigFromEnv()),
       { operation: "drafting", methodStatementId, projectId: ms.project.id }
     );
 

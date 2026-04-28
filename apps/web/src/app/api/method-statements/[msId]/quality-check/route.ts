@@ -11,8 +11,7 @@
 import { NextResponse } from "next/server";
 import { getAuthUser } from "@/lib/auth";
 import { db } from "@ams/database";
-import { runDocumentSafetyGates, extractClaims, checkClaims } from "@ams/ai-engine";
-import { AnthropicLLMProvider } from "@ams/ai-engine";
+import { runDocumentSafetyGates, extractClaims, checkClaims, createLLMProvider, getLLMConfigFromEnv } from "@ams/ai-engine";
 
 export async function POST(
   req: Request,
@@ -92,9 +91,8 @@ export async function POST(
   // Optional hallucination check (costs tokens)
   let hallucinationResults: any[] = [];
   if (runHallucinationCheck) {
-    const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (apiKey) {
-      const llm = new AnthropicLLMProvider(apiKey);
+    try {
+      const llm = createLLMProvider(getLLMConfigFromEnv());
       const allClaims = sections.flatMap((s) =>
         extractClaims(s.content).slice(0, 3) // max 3 claims per section to control cost
       );
@@ -111,6 +109,8 @@ export async function POST(
           llm
         );
       }
+    } catch {
+      // LLM not configured — skip hallucination check
     }
   }
 

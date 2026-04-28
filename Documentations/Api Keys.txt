@@ -1,0 +1,28 @@
+Google Embeddings:
+
+API Key: AIzaSyDn4QCc9ygtOMCAFit1ukY0YwP7-WL1XLI
+Embeddings
+projects/184659185330
+Project no: 184659185330
+
+
+Ollama:
+Method Statement
+API Key: 50d2aa084a0b41e89fffb7b4053de8da.t48RR65tP0pVO12Gx-QeAx4-
+
+
+Google Image Gen:
+
+API Key: AIzaSyCgfCLGoBhA-MWR4ggVOXv2QMywCkDIgWo
+Image Generation
+projects/184659185330
+Project no: 184659185330
+
+Clerk Webhooks
+Secret: whsec_hXhw0ge48oJkmP1CFwBtZi5yKsMBU9pC
+
+Clerk publishable key:
+pk_test_ZGFyaW5nLXRhcGlyLTk1LmNsZXJrLmFjY291bnRzLmRldiQ
+
+Secret Key:
+sk_test_A7EFQsXcXSl1T3XVXgvlUQwEKxJ7IeaOoQueiVFHJf

@@ -7,7 +7,7 @@
 
 import type { Job } from "bullmq";
 import { db } from "@ams/database";
-import { createDocumentAIProvider } from "@ams/ai-engine";
+import { createDocumentAIProviderAsync, getDocumentAIConfigFromEnv } from "@ams/ai-engine";
 import { createStorageProvider } from "@ams/storage";
 import { embeddingQueue, taggingQueue } from "../queues";
 
@@ -33,7 +33,7 @@ export async function processHistoricalMSIngestion(
 
     await job.updateProgress(15);
 
-    const docAI = createDocumentAIProvider({ provider: "native" });
+    const docAI = await createDocumentAIProviderAsync(getDocumentAIConfigFromEnv());
     const extraction = await docAI.extract(fileBuffer, mimeType);
 
     await job.updateProgress(50);

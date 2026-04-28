@@ -7,6 +7,7 @@
 // =============================================================================
 
 export { OCR_CONFIDENCE_THRESHOLD } from "./constants";
+export { tagDocument, type DocumentTags } from "./metadata-tagger";
 
 export interface ExtractedChunk {
   type: "text" | "table" | "image" | "diagram";
@@ -79,21 +80,83 @@ export class NativeDocumentAIProvider implements DocumentAIProvider {
 
 // ── Factory ───────────────────────────────────────────────────────────────────
 
+type DocAIProvider = "native" | "gemini" | "ollama" | "openrouter";
+
 export function createDocumentAIProvider(config?: {
-  provider?: "native" | "google" | "mock";
-  projectId?: string;
-  location?: string;
-  processorId?: string;
+  provider?: DocAIProvider;
+  apiKey?: string;
+  model?: string;
+  baseURL?: string;
 }): DocumentAIProvider {
   const provider = config?.provider ?? "native";
 
-  if (provider === "native" || provider === "mock") {
+  if (provider === "native") {
     return new NativeDocumentAIProvider();
   }
 
-  // TODO: Google Document AI after provider bake-off (Open Decision §13)
   throw new Error(
-    `Document AI provider "${provider}" not yet implemented. ` +
-      `Provider bake-off required before Phase 1.`
+    `Document AI provider "${provider}" requires async loading. ` +
+      `Use getDocumentAIConfigFromEnv() and pass the result to createDocumentAIProviderAsync().`
   );
+}
+
+export async function createDocumentAIProviderAsync(config?: {
+  provider?: DocAIProvider;
+  apiKey?: string;
+  model?: string;
+  baseURL?: string;
+}): Promise<DocumentAIProvider> {
+  const provider = config?.provider ?? "native";
+
+  if (provider === "native") {
+    return new NativeDocumentAIProvider();
+  }
+
+  if (provider === "gemini") {
+    const { GeminiDocumentAIProvider } = await import("./gemini-provider");
+    const apiKey = config?.apiKey;
+    if (!apiKey) throw new Error("DOCUMENT_AI_API_KEY not configured for Gemini Document AI");
+    if (!config?.model) throw new Error("DOCUMENT_AI_MODEL is required for Gemini Document AI");
+    return new GeminiDocumentAIProvider(apiKey, config.model!);
+  }
+
+  if (provider === "ollama") {
+    const { OllamaDocumentAIProvider } = await import("./ollama-provider");
+    const apiKey = config?.apiKey;
+    if (!apiKey) throw new Error("DOCUMENT_AI_API_KEY not configured for Ollama Document AI");
+    if (!config?.model) throw new Error("DOCUMENT_AI_MODEL is required for Ollama Document AI");
+    return new OllamaDocumentAIProvider(apiKey, config.model!, config?.baseURL);
+  }
+
+  if (provider === "openrouter") {
+    const { OpenRouterDocumentAIProvider } = await import("./openrouter-provider");
+    const apiKey = config?.apiKey;
+    if (!apiKey) throw new Error("DOCUMENT_AI_API_KEY not configured for OpenRouter Document AI");
+    if (!config?.model) throw new Error("DOCUMENT_AI_MODEL is required for OpenRouter Document AI");
+    return new OpenRouterDocumentAIProvider(apiKey, config.model!, config?.baseURL);
+  }
+
+  throw new Error(`Unknown Document AI provider: "${provider}"`);
+}
+
+// ── Shared config helper — resolves Document AI settings from env vars ────────
+
+export function getDocumentAIConfigFromEnv(): {
+  provider: DocAIProvider;
+  apiKey?: string;
+  model?: string;
+  baseURL?: string;
+} {
+  const provider = (process.env.DOCUMENT_AI_PROVIDER as DocAIProvider) ?? "native";
+
+  if (provider === "native") {
+    return { provider: "native" };
+  }
+
+  // All AI providers use dedicated DOCUMENT_AI_* env vars
+  const apiKey = process.env.DOCUMENT_AI_API_KEY;
+  const model = process.env.DOCUMENT_AI_MODEL;
+  const baseURL = process.env.DOCUMENT_AI_BASE_URL;
+
+  return { provider, apiKey, model, baseURL };
 }
