@@ -7,7 +7,7 @@
 // =============================================================================
 
 import { notFound } from "next/navigation";
-import { auth } from "@/lib/auth";
+import { getAuthUser } from "@/lib/auth";
 import { db } from "@ams/database";
 import Link from "next/link";
 
@@ -34,8 +34,8 @@ export default async function DocumentDetailPage({
   params: Promise<{ id: string; docId: string }>;
 }) {
   const { id, docId } = await params;
-  const session = await auth();
-  const userId = (session?.user as any)?.id as string;
+  const user = await getAuthUser();
+  const userId = user!.id;
 
   const [doc, passages] = await Promise.all([
     db.projectDocument.findFirst({

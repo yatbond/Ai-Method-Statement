@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { auth } from "@/lib/auth";
+import { getAuthUser } from "@/lib/auth";
 import { db } from "@ams/database";
 import Link from "next/link";
 
@@ -21,7 +21,7 @@ export default async function KBDetailPage({
 }: {
   params: Promise<{ msId: string }>;
 }) {
-  await auth();
+  // auth guard handled by Clerk middleware and layout
   const { msId } = await params;
 
   const ms = await db.historicalMethodStatement.findUnique({

@@ -1,4 +1,4 @@
-import { auth } from "@/lib/auth";
+import { getAuthUser } from "@/lib/auth";
 import { db } from "@ams/database";
 import Link from "next/link";
 import HistoricalMSUploadForm from "@/components/knowledge-base/historical-ms-upload";
@@ -6,7 +6,7 @@ import HistoricalMSUploadForm from "@/components/knowledge-base/historical-ms-up
 export const metadata = { title: "Upload to Knowledge Base" };
 
 export default async function KBUploadPage() {
-  await auth();
+  // auth guard handled by Clerk middleware and layout
 
   const trades = await db.trade.findMany({
     orderBy: { name: "asc" },

@@ -1,4 +1,4 @@
-import { auth } from "@/lib/auth";
+import { getAuthUser } from "@/lib/auth";
 import { db } from "@ams/database";
 import Link from "next/link";
 import { formatDate } from "@/lib/utils";
@@ -7,8 +7,8 @@ import NewProjectButton from "@/components/projects/new-project-button";
 export const metadata = { title: "Projects" };
 
 export default async function ProjectsPage() {
-  const session = await auth();
-  const userId = (session?.user as any)?.id as string;
+  const user = await getAuthUser();
+  const userId = user!.id;
 
   const projects = await db.project.findMany({
     where: {

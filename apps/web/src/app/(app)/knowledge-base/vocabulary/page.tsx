@@ -6,7 +6,7 @@
 // and specificity checks with suggested replacements.
 // =============================================================================
 
-import { auth } from "@/lib/auth";
+import { getAuthUser } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { db } from "@ams/database";
@@ -15,8 +15,8 @@ import VocabularyManager from "@/components/knowledge-base/vocabulary-manager";
 export const metadata = { title: "Vocabulary — AMS Studio" };
 
 export default async function VocabularyPage() {
-  const session = await auth();
-  if (!session) redirect("/login");
+  const user = await getAuthUser();
+  if (!user) redirect("/login");
 
   const [terms, trades] = await Promise.all([
     db.vocabularyTerm.findMany({

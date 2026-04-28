@@ -6,7 +6,7 @@
 // read-only in the UI. Updates go through the seed/migration process.
 // =============================================================================
 
-import { auth } from "@/lib/auth";
+import { getAuthUser } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { db } from "@ams/database";
 import Link from "next/link";
@@ -15,8 +15,8 @@ import SequenceDiagram from "@/components/method-statements/sequence-diagram";
 export const metadata = { title: "Trade Packs — AMS Studio" };
 
 export default async function TradePacksPage() {
-  const session = await auth();
-  if (!session) redirect("/login");
+  const user = await getAuthUser();
+  if (!user) redirect("/login");
 
   const trades = await db.trade.findMany({
     orderBy: { name: "asc" },

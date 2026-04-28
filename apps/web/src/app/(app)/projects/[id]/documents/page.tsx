@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { auth } from "@/lib/auth";
+import { getAuthUser } from "@/lib/auth";
 import { db } from "@ams/database";
 import Link from "next/link";
 import DocumentUploader from "@/components/documents/document-uploader";
@@ -17,8 +17,8 @@ export default async function DocumentsPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const session = await auth();
-  const userId = (session?.user as any)?.id as string;
+  const user = await getAuthUser();
+  const userId = user!.id;
 
   const project = await db.project.findFirst({
     where: { id, members: { some: { userId } }, archivedAt: null },

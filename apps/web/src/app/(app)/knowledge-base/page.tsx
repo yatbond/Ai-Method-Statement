@@ -1,4 +1,4 @@
-import { auth } from "@/lib/auth";
+import { getAuthUser } from "@/lib/auth";
 import { db } from "@ams/database";
 import Link from "next/link";
 import KnowledgeBaseFilters from "@/components/knowledge-base/kb-filters";
@@ -10,7 +10,7 @@ export default async function KnowledgeBasePage({
 }: {
   searchParams: Promise<{ tradeId?: string; q?: string; page?: string }>;
 }) {
-  await auth(); // session guard handled by layout
+  // auth guard handled by Clerk middleware and layout
 
   const sp = await searchParams;
   const page = parseInt(sp.page ?? "1");

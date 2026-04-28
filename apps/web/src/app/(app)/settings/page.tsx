@@ -5,7 +5,7 @@
 // Sensitive values (API keys) are never rendered — only presence/absence.
 // =============================================================================
 
-import { auth } from "@/lib/auth";
+import { getAuthUser } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { db } from "@ams/database";
 
@@ -20,8 +20,8 @@ function maskKey(value: string | undefined): { present: boolean; masked: string 
 }
 
 export default async function SettingsPage() {
-  const session = await auth();
-  if (!session) redirect("/login");
+  const user = await getAuthUser();
+  if (!user) redirect("/login");
 
   // AI cost summary — last 30 days
   const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
@@ -43,13 +43,13 @@ export default async function SettingsPage() {
     { label: "GOOGLE_API_KEY", key: "GOOGLE_API_KEY", required: true, purpose: "Gemini embeddings & Document AI" },
     { label: "DATABASE_URL", key: "DATABASE_URL", required: true, purpose: "PostgreSQL connection" },
     { label: "REDIS_URL", key: "REDIS_URL", required: true, purpose: "BullMQ job queue" },
+    { label: "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY", key: "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY", required: true, purpose: "Clerk authentication (public)" },
+    { label: "CLERK_SECRET_KEY", key: "CLERK_SECRET_KEY", required: true, purpose: "Clerk authentication (server)" },
     { label: "STORAGE_BUCKET", key: "STORAGE_BUCKET", required: false, purpose: "S3-compatible file storage" },
     { label: "STORAGE_ENDPOINT", key: "STORAGE_ENDPOINT", required: false, purpose: "Storage endpoint (MinIO/S3)" },
-    { label: "NEXTAUTH_URL", key: "NEXTAUTH_URL", required: false, purpose: "NextAuth callback base URL" },
-    { label: "AZURE_AD_CLIENT_ID", key: "AZURE_AD_CLIENT_ID", required: false, purpose: "Azure AD SSO client ID" },
   ];
 
-  const user = session.user as any;
+  
 
   return (
     <div className="max-w-2xl space-y-8">
@@ -72,7 +72,7 @@ export default async function SettingsPage() {
           </div>
           <div className="px-5 py-3 flex items-center justify-between">
             <span className="text-sm text-gray-500">Authentication</span>
-            <span className="text-sm text-gray-900">Azure AD (SSO)</span>
+            <span className="text-sm text-gray-900">Clerk (email + password)</span>
           </div>
         </div>
       </section>

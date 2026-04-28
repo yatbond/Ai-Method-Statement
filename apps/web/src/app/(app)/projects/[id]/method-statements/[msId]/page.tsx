@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { auth } from "@/lib/auth";
+import { getAuthUser } from "@/lib/auth";
 import { db } from "@ams/database";
 import Link from "next/link";
 import GapAnalysisPanel from "@/components/method-statements/gap-analysis-panel";
@@ -30,8 +30,8 @@ export default async function MethodStatementPage({
   params: Promise<{ id: string; msId: string }>;
 }) {
   const { id, msId } = await params;
-  const session = await auth();
-  const userId = (session?.user as any)?.id as string;
+  const user = await getAuthUser();
+  const userId = user!.id;
 
   const [ms, retrievalResults, conflictRecords, referenceMarkers] = await Promise.all([
     db.methodStatement.findFirst({
@@ -261,7 +261,7 @@ export default async function MethodStatementPage({
             methodStatementId={ms.id}
             initialStatus={ms.status as any}
             initialReviewerOfRecord={ms.reviewerOfRecord}
-            currentUserName={(session?.user as any)?.name}
+            currentUserName={user?.name}
           />
 
           {/* Sections */}
