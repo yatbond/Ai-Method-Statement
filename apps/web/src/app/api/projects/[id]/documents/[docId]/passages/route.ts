@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { getAuthUser } from "@/lib/auth";
 import { db } from "@ams/database";
 
 export async function GET(
@@ -7,10 +7,10 @@ export async function GET(
   { params }: { params: Promise<{ id: string; docId: string }> }
 ) {
   const { id: projectId, docId } = await params;
-  const session = await auth();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const user = await getAuthUser();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const userId = (session.user as any)?.id as string;
+  const userId = user.id;
 
   const member = await db.projectMember.findFirst({
     where: { projectId, userId },

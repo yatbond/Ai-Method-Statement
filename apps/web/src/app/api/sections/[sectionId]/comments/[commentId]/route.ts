@@ -2,7 +2,7 @@
 // Toggle resolved state or update content (author only).
 
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { getAuthUser } from "@/lib/auth";
 import { db } from "@ams/database";
 
 export async function PATCH(
@@ -10,10 +10,10 @@ export async function PATCH(
   { params }: { params: Promise<{ sectionId: string; commentId: string }> }
 ) {
   const { commentId } = await params;
-  const session = await auth();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const user = await getAuthUser();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const userId = (session.user as any)?.id as string;
+  const userId = user.id;
   const body = await req.json().catch(() => ({}));
 
   const comment = await db.comment.findFirst({
@@ -49,10 +49,10 @@ export async function DELETE(
   { params }: { params: Promise<{ sectionId: string; commentId: string }> }
 ) {
   const { commentId } = await params;
-  const session = await auth();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const user = await getAuthUser();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const userId = (session.user as any)?.id as string;
+  const userId = user.id;
 
   const comment = await db.comment.findFirst({
     where: { id: commentId, authorId: userId },

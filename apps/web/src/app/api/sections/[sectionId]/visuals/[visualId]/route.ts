@@ -2,7 +2,7 @@
 // DELETE /api/sections/[sectionId]/visuals/[visualId] — remove visual
 
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { getAuthUser } from "@/lib/auth";
 import { db } from "@ams/database";
 
 async function getAuthorizedSection(sectionId: string, userId: string) {
@@ -20,10 +20,10 @@ export async function PATCH(
   { params }: { params: Promise<{ sectionId: string; visualId: string }> }
 ) {
   const { sectionId, visualId } = await params;
-  const session = await auth();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const user = await getAuthUser();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const userId = (session.user as any)?.id as string;
+  const userId = user.id;
 
   const section = await getAuthorizedSection(sectionId, userId);
   if (!section) return NextResponse.json({ error: "Not found." }, { status: 404 });
@@ -69,10 +69,10 @@ export async function DELETE(
   { params }: { params: Promise<{ sectionId: string; visualId: string }> }
 ) {
   const { sectionId, visualId } = await params;
-  const session = await auth();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const user = await getAuthUser();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const userId = (session.user as any)?.id as string;
+  const userId = user.id;
 
   const section = await getAuthorizedSection(sectionId, userId);
   if (!section) return NextResponse.json({ error: "Not found." }, { status: 404 });

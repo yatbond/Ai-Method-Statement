@@ -2,7 +2,7 @@
 // DELETE /api/projects/[id]/members/[memberId] — remove member
 
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { getAuthUser } from "@/lib/auth";
 import { db } from "@ams/database";
 
 async function requireAdminOrManager(projectId: string, userId: string) {
@@ -18,10 +18,10 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string; memberId: string }> }
 ) {
   const { id: projectId, memberId } = await params;
-  const session = await auth();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const user = await getAuthUser();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const userId = (session.user as any)?.id as string;
+  const userId = user.id;
 
   if (!(await requireAdminOrManager(projectId, userId))) {
     return NextResponse.json({ error: "Insufficient permissions." }, { status: 403 });
@@ -47,10 +47,10 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string; memberId: string }> }
 ) {
   const { id: projectId, memberId } = await params;
-  const session = await auth();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const user = await getAuthUser();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const userId = (session.user as any)?.id as string;
+  const userId = user.id;
 
   if (!(await requireAdminOrManager(projectId, userId))) {
     return NextResponse.json({ error: "Insufficient permissions." }, { status: 403 });

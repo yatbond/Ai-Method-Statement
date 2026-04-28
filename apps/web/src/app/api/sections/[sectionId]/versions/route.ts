@@ -1,7 +1,7 @@
 // GET /api/sections/[sectionId]/versions — list all versions newest-first
 
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { getAuthUser } from "@/lib/auth";
 import { db } from "@ams/database";
 
 export async function GET(
@@ -9,10 +9,10 @@ export async function GET(
   { params }: { params: Promise<{ sectionId: string }> }
 ) {
   const { sectionId } = await params;
-  const session = await auth();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const user = await getAuthUser();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const userId = (session.user as any)?.id as string;
+  const userId = user.id;
 
   const section = await db.methodStatementSection.findFirst({
     where: {

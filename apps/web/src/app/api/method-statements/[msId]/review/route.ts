@@ -2,7 +2,7 @@
 // Transitions DRAFT → IN_REVIEW. Sets reviewerOfRecord (REQ-SIGN-002).
 
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { getAuthUser } from "@/lib/auth";
 import { db } from "@ams/database";
 
 export async function POST(
@@ -10,10 +10,10 @@ export async function POST(
   { params }: { params: Promise<{ msId: string }> }
 ) {
   const { msId } = await params;
-  const session = await auth();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const user = await getAuthUser();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const userId = (session.user as any)?.id as string;
+  const userId = user.id;
   const body = await req.json().catch(() => ({}));
   const reviewerName = (body.reviewerName ?? (session.user as any)?.name ?? "").trim();
 

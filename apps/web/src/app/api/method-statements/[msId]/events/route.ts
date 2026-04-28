@@ -14,7 +14,7 @@
 //   heartbeat    — {} (every 15s to keep connection alive)
 // =============================================================================
 
-import { auth } from "@/lib/auth";
+import { getAuthUser } from "@/lib/auth";
 import { db } from "@ams/database";
 
 export const runtime = "nodejs";
@@ -25,12 +25,12 @@ export async function GET(
   { params }: { params: Promise<{ msId: string }> }
 ) {
   const { msId } = await params;
-  const session = await auth();
-  if (!session) {
+  const user = await getAuthUser();
+  if (!user) {
     return new Response("Unauthorized", { status: 401 });
   }
 
-  const userId = (session.user as any)?.id as string;
+  const userId = user.id;
 
   // Verify access
   const ms = await db.methodStatement.findFirst({

@@ -1,14 +1,14 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { getAuthUser } from "@/lib/auth";
 import { db } from "@ams/database";
 import { audit, AUDIT_ACTIONS } from "@/lib/audit";
 
 export async function POST(req: Request) {
-  const session = await auth();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const user = await getAuthUser();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const userId = (session.user as any)?.id as string;
-  const orgId = (session.user as any)?.organisationId as string;
+  const userId = user.id;
+  const orgId = user.organisationId;
 
   const body = await req.json();
   const { name, description } = body;

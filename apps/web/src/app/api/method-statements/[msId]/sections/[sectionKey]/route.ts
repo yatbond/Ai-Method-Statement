@@ -7,7 +7,7 @@
 // =============================================================================
 
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { getAuthUser } from "@/lib/auth";
 import { db } from "@ams/database";
 import { draftQueue } from "@/lib/queues";
 import { audit } from "@/lib/audit";
@@ -18,10 +18,10 @@ export async function GET(
   { params }: { params: Promise<{ msId: string; sectionKey: string }> }
 ) {
   const { msId, sectionKey } = await params;
-  const session = await auth();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const user = await getAuthUser();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const userId = (session.user as any)?.id as string;
+  const userId = user.id;
 
   const ms = await db.methodStatement.findFirst({
     where: { id: msId, project: { members: { some: { userId } } } },
@@ -49,10 +49,10 @@ export async function POST(
   { params }: { params: Promise<{ msId: string; sectionKey: string }> }
 ) {
   const { msId, sectionKey } = await params;
-  const session = await auth();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const user = await getAuthUser();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const userId = (session.user as any)?.id as string;
+  const userId = user.id;
 
   const ms = await db.methodStatement.findFirst({
     where: { id: msId, project: { members: { some: { userId } } } },
@@ -95,10 +95,10 @@ export async function PUT(
   { params }: { params: Promise<{ msId: string; sectionKey: string }> }
 ) {
   const { msId, sectionKey } = await params;
-  const session = await auth();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const user = await getAuthUser();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const userId = (session.user as any)?.id as string;
+  const userId = user.id;
 
   const ms = await db.methodStatement.findFirst({
     where: { id: msId, project: { members: { some: { userId } } } },

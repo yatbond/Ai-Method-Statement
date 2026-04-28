@@ -7,7 +7,7 @@
 // =============================================================================
 
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { getAuthUser } from "@/lib/auth";
 import { db, DocumentStatus } from "@ams/database";
 import { audit } from "@/lib/audit";
 import { createStorageProvider } from "@ams/storage";
@@ -15,10 +15,10 @@ import { ingestionQueue } from "@/lib/queues";
 import { MAX_UPLOAD_SIZE_BYTES } from "@ams/shared";
 
 export async function GET(req: Request) {
-  const session = await auth();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const user = await getAuthUser();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const userId = (session.user as any)?.id as string;
+  const userId = user.id;
   const { searchParams } = new URL(req.url);
 
   const tradeId = searchParams.get("tradeId");
@@ -59,10 +59,10 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const session = await auth();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const user = await getAuthUser();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const userId = (session.user as any)?.id as string;
+  const userId = user.id;
 
   // Only Admins and Knowledge Curators (Manager role) can ingest historical MS
   // In a full implementation this would check a specific KB_CURATOR permission

@@ -2,7 +2,7 @@
 // DELETE /api/vocabulary/[termId] — delete a term
 
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { getAuthUser } from "@/lib/auth";
 import { db } from "@ams/database";
 
 export async function PATCH(
@@ -10,8 +10,8 @@ export async function PATCH(
   { params }: { params: Promise<{ termId: string }> }
 ) {
   const { termId } = await params;
-  const session = await auth();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const user = await getAuthUser();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const body = await req.json().catch(() => null);
   if (!body) return NextResponse.json({ error: "Invalid body." }, { status: 400 });
@@ -38,8 +38,8 @@ export async function DELETE(
   { params }: { params: Promise<{ termId: string }> }
 ) {
   const { termId } = await params;
-  const session = await auth();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const user = await getAuthUser();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   await db.vocabularyTerm.delete({ where: { id: termId } });
   return NextResponse.json({ ok: true });
