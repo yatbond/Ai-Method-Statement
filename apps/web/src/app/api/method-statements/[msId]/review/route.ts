@@ -15,7 +15,7 @@ export async function POST(
 
   const userId = user.id;
   const body = await req.json().catch(() => ({}));
-  const reviewerName = (body.reviewerName ?? (session.user as any)?.name ?? "").trim();
+  const reviewerName = (body.reviewerName ?? user.name ?? "").trim();
 
   const ms = await db.methodStatement.findFirst({
     where: { id: msId, project: { members: { some: { userId } } } },

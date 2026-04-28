@@ -42,7 +42,7 @@ export async function POST(
       action: "method_statement.approved",
       resourceType: "MethodStatement",
       resourceId: msId,
-      metadata: { approvedBy: (session.user as any)?.name, notes },
+      metadata: { approvedBy: user.name, notes },
     },
   });
 
