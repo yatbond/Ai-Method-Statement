@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { getAuthUser } from "@/lib/auth";
 import { db } from "@ams/database";
 import Link from "next/link";
@@ -31,7 +31,8 @@ export default async function MethodStatementPage({
 }) {
   const { id, msId } = await params;
   const user = await getAuthUser();
-  const userId = user!.id;
+  if (!user) redirect("/login");
+  const userId = user.id;
 
   const [ms, retrievalResults, conflictRecords, referenceMarkers] = await Promise.all([
     db.methodStatement.findFirst({

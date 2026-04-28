@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { getAuthUser } from "@/lib/auth";
 import { db } from "@ams/database";
 import Link from "next/link";
@@ -8,7 +9,8 @@ export const metadata = { title: "Projects" };
 
 export default async function ProjectsPage() {
   const user = await getAuthUser();
-  const userId = user!.id;
+  if (!user) redirect("/login");
+  const userId = user.id;
 
   const projects = await db.project.findMany({
     where: {

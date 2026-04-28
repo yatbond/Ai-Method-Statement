@@ -6,7 +6,7 @@
 // quality and understanding what content is available for retrieval.
 // =============================================================================
 
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { getAuthUser } from "@/lib/auth";
 import { db } from "@ams/database";
 import Link from "next/link";
@@ -35,7 +35,8 @@ export default async function DocumentDetailPage({
 }) {
   const { id, docId } = await params;
   const user = await getAuthUser();
-  const userId = user!.id;
+  if (!user) redirect("/login");
+  const userId = user.id;
 
   const [doc, passages] = await Promise.all([
     db.projectDocument.findFirst({

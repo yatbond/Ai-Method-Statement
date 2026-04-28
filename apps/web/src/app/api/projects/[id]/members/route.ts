@@ -68,7 +68,7 @@ export async function POST(
 
   if (!targetUser) {
     return NextResponse.json(
-      { error: "No user with that email address exists. They must sign in via SSO first." },
+      { error: "No user with that email address exists. They must create an account and sign in first." },
       { status: 404 }
     );
   }

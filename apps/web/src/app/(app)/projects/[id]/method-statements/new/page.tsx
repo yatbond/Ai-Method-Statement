@@ -12,7 +12,8 @@ export default async function NewMethodStatementPage({
 }) {
   const { id } = await params;
   const user = await getAuthUser();
-  const userId = user!.id;
+  if (!user) redirect("/login");
+  const userId = user.id;
 
   const project = await db.project.findFirst({
     where: { id, members: { some: { userId } }, archivedAt: null },

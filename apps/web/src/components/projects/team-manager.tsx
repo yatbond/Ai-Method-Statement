@@ -216,7 +216,7 @@ export default function TeamManager({
                 </div>
               </div>
               <p className="text-xs text-gray-400">
-                The user must have signed in via SSO before they can be added.
+                The user must have created an account and signed in before they can be added.
               </p>
             </div>
           ) : (
