@@ -21,7 +21,7 @@ export async function GET(
       content: true,
       resolved: true,
       createdAt: true,
-      author: { select: { id: true, name: true, image: true } },
+      author: { select: { id: true, name: true } },
       replies: {
         orderBy: { createdAt: "asc" },
         select: {
@@ -29,7 +29,7 @@ export async function GET(
           content: true,
           resolved: true,
           createdAt: true,
-          author: { select: { id: true, name: true, image: true } },
+          author: { select: { id: true, name: true } },
         },
       },
     },
@@ -75,7 +75,7 @@ export async function POST(
       content: true,
       resolved: true,
       createdAt: true,
-      author: { select: { id: true, name: true, image: true } },
+      author: { select: { id: true, name: true } },
     },
   });
 

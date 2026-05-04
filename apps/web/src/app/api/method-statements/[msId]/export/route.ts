@@ -93,7 +93,7 @@ export async function GET(
         jobType: "export.generate",
         payload: { path: ["methodStatementId"], equals: msId },
       },
-      orderBy: { createdAt: "desc" },
+      orderBy: { scheduledAt: "desc" },
       select: { status: true, completedAt: true, errorMessage: true, result: true },
     }),
   ]);

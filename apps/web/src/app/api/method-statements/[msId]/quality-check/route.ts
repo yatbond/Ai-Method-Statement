@@ -56,7 +56,7 @@ export async function POST(
       await db.sourcePassage.findMany({
         where: {
           OR: [
-            { sourceDocument: { project: { methodStatements: { some: { id: msId } } } } },
+            { projectDocument: { project: { methodStatements: { some: { id: msId } } } } },
           ],
         },
         select: { id: true },

@@ -33,25 +33,27 @@ export default async function AppLayout({
         update: { email, name, lastLoginAt: new Date() },
       });
       const freshUser = { id: upserted.id, organisationId: upserted.organisationId, email: upserted.email, name: upserted.name };
-      return (
-        <div className="flex h-screen bg-gray-50">
-          <Sidebar />
-          <div className="flex-1 flex flex-col min-w-0">
-            <Header user={freshUser} />
-            <main className="flex-1 overflow-y-auto p-6">{children}</main>
-          </div>
-        </div>
-      );
+      return <AppShell user={freshUser}>{children}</AppShell>;
     }
     redirect("/login");
   }
 
+  return <AppShell user={user}>{children}</AppShell>;
+}
+
+function AppShell({
+  children,
+  user,
+}: {
+  children: React.ReactNode;
+  user: { id: string; organisationId: string; email: string; name: string };
+}) {
   return (
-    <div className="flex h-screen bg-gray-50">
+    <div className="flex h-screen bg-slate-100 text-slate-950">
       <Sidebar />
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex min-w-0 flex-1 flex-col">
         <Header user={user} />
-        <main className="flex-1 overflow-y-auto p-6">{children}</main>
+        <main className="flex-1 overflow-y-auto p-8">{children}</main>
       </div>
     </div>
   );

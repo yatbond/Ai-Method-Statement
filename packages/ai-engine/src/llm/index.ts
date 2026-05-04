@@ -87,7 +87,7 @@ export class OpenAILLMProvider implements LLMProvider {
       stop: request.stopSequences,
     });
 
-    const content = response.choices[0]?.message.content ?? "";
+    const content = normalizeOpenAIContent(response.choices[0]?.message);
 
     return {
       content,
@@ -126,9 +126,10 @@ export class OllamaLLMProvider implements LLMProvider {
       temperature: request.temperature ?? 0.3,
       messages: request.messages,
       stop: request.stopSequences,
+      reasoning_effort: "none" as any,
     });
 
-    const content = response.choices[0]?.message.content ?? "";
+    const content = normalizeOpenAIContent(response.choices[0]?.message);
 
     return {
       content,
@@ -140,6 +141,25 @@ export class OllamaLLMProvider implements LLMProvider {
       model: this.model,
     };
   }
+}
+
+function normalizeOpenAIContent(message: any): string {
+  const content = message?.content;
+  if (typeof content === "string") return content;
+  if (Array.isArray(content)) {
+    return content
+      .map((part) => {
+        if (typeof part === "string") return part;
+        if (typeof part?.text === "string") return part.text;
+        if (typeof part?.content === "string") return part.content;
+        return "";
+      })
+      .filter(Boolean)
+      .join("\n");
+  }
+  if (typeof message?.reasoning_content === "string") return message.reasoning_content;
+  if (typeof message?.reasoning === "string") return message.reasoning;
+  return "";
 }
 
 // ── Provider factory ──────────────────────────────────────────────────────────

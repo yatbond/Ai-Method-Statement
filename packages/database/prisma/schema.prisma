@@ -100,6 +100,7 @@ enum WorkerJobStatus {
   COMPLETE
   FAILED
   RETRYING
+  CANCELLED
 }
 
 enum SectionStatus {
@@ -407,6 +408,7 @@ model MethodStatementSection {
   orderIndex        Int
   status            SectionStatus @default(NOT_STARTED)
   content           String?       // Rich text / markdown
+  draftingNotes     String?       // User-provided section input for AI drafting
   specificityScore  Int?          // 0–100
   createdAt         DateTime      @default(now())
   updatedAt         DateTime      @updatedAt

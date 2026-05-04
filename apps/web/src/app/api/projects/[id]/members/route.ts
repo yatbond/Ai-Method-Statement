@@ -25,7 +25,7 @@ export async function GET(
       id: true,
       role: true,
       createdAt: true,
-      user: { select: { id: true, name: true, email: true, image: true } },
+      user: { select: { id: true, name: true, email: true } },
     },
   });
 
@@ -86,7 +86,7 @@ export async function POST(
       id: true,
       role: true,
       createdAt: true,
-      user: { select: { id: true, name: true, email: true, image: true } },
+      user: { select: { id: true, name: true, email: true } },
     },
   });
 

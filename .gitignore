@@ -15,6 +15,13 @@ build/
 .env.local
 .env.*.local
 !.env.example
+.env.backups/
+
+# Local app runtime settings and storage
+.ams-ai-models.json
+.ams-import-sources.json
+.storage/
+apps/web/"./
 
 # Testing
 coverage/
@@ -31,6 +38,8 @@ pnpm-debug.log*
 # OS
 .DS_Store
 Thumbs.db
+*.Zone.Identifier
+~$*
 
 # IDE
 .vscode/

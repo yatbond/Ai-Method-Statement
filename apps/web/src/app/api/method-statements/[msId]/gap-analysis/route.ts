@@ -86,8 +86,8 @@ export async function GET(
         jobType: "gap-analysis.run",
         payload: { path: ["methodStatementId"], equals: msId },
       },
-      orderBy: { createdAt: "desc" },
-      select: { status: true, createdAt: true, completedAt: true, errorMessage: true },
+      orderBy: { scheduledAt: "desc" },
+      select: { status: true, scheduledAt: true, completedAt: true, errorMessage: true },
     }),
   ]);
 

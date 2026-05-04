@@ -29,7 +29,8 @@ export async function GET(
   });
   if (!ms) return NextResponse.json({ error: "Not found." }, { status: 404 });
 
-  const section = await db.methodStatementSection.findFirst({
+  const [section, draftJob] = await Promise.all([
+    db.methodStatementSection.findFirst({
     where: { methodStatementId: msId, sectionKey },
     include: {
       versions: {
@@ -39,9 +40,22 @@ export async function GET(
       },
       _count: { select: { comments: true } },
     },
-  });
+    }),
+    db.workerJob.findFirst({
+      where: {
+        jobType: "draft.section",
+        payload: {
+          path: ["methodStatementId"],
+          equals: msId,
+        },
+        AND: [{ payload: { path: ["sectionKey"], equals: sectionKey } }],
+      },
+      orderBy: { scheduledAt: "desc" },
+      select: { id: true, status: true, errorMessage: true, result: true, scheduledAt: true, completedAt: true },
+    }),
+  ]);
 
-  return NextResponse.json(section ?? null);
+  return NextResponse.json(section ? { ...section, draftJob } : null);
 }
 
 export async function POST(
@@ -65,8 +79,24 @@ export async function POST(
     return NextResponse.json({ error: "Unknown section key." }, { status: 400 });
   }
 
+  const section = await db.methodStatementSection.upsert({
+    where: {
+      methodStatementId_sectionKey: { methodStatementId: msId, sectionKey },
+    },
+    create: {
+      methodStatementId: msId,
+      sectionKey,
+      sectionTitle: sectionDef.title,
+      orderIndex: sectionDef.order,
+      status: "DRAFTING",
+    },
+    update: {
+      status: "DRAFTING",
+    },
+  });
+
   // Create a WorkerJob record for status visibility
-  await db.workerJob.create({
+  const workerJob = await db.workerJob.create({
     data: {
       jobType: "draft.section",
       payload: { methodStatementId: msId, sectionKey, userId },
@@ -75,7 +105,7 @@ export async function POST(
 
   await draftQueue.add(
     "draft.section",
-    { methodStatementId: msId, sectionKey, userId },
+    { methodStatementId: msId, sectionKey, userId, workerJobId: workerJob.id },
     { attempts: 2, backoff: { type: "exponential", delay: 3000 } }
   );
 
@@ -87,7 +117,7 @@ export async function POST(
     metadata: { sectionKey, title: ms.title },
   });
 
-  return NextResponse.json({ queued: true, sectionKey });
+  return NextResponse.json({ queued: true, sectionKey, workerJobId: workerJob.id, section });
 }
 
 export async function PUT(
@@ -106,12 +136,15 @@ export async function PUT(
   });
   if (!ms) return NextResponse.json({ error: "Not found." }, { status: 404 });
 
-  const { content } = await req.json() as { content: string };
-  if (typeof content !== "string") {
-    return NextResponse.json({ error: "content is required." }, { status: 400 });
+  const body = await req.json() as { content?: string; draftingNotes?: string };
+  const hasContent = typeof body.content === "string";
+  const hasDraftingNotes = typeof body.draftingNotes === "string";
+  if (!hasContent && !hasDraftingNotes) {
+    return NextResponse.json({ error: "content or draftingNotes is required." }, { status: 400 });
   }
 
   const sectionDef = STANDARD_SECTIONS.find((s) => s.key === sectionKey);
+  const content = body.content ?? "";
 
   const section = await db.methodStatementSection.upsert({
     where: {
@@ -122,29 +155,31 @@ export async function PUT(
       sectionKey,
       sectionTitle: sectionDef?.title ?? sectionKey,
       orderIndex: sectionDef?.order ?? 0,
-      content,
-      status: "DRAFT",
+      ...(hasContent ? { content, status: "DRAFT" as const } : {}),
+      ...(hasDraftingNotes ? { draftingNotes: body.draftingNotes } : {}),
     },
     update: {
-      content,
-      status: "DRAFT",
+      ...(hasContent ? { content, status: "DRAFT" as const } : {}),
+      ...(hasDraftingNotes ? { draftingNotes: body.draftingNotes } : {}),
     },
   });
 
   // Save as a new version
-  const lastVersion = await db.sectionVersion.findFirst({
-    where: { sectionId: section.id },
-    orderBy: { version: "desc" },
-    select: { version: true },
-  });
-  await db.sectionVersion.create({
-    data: {
-      sectionId: section.id,
-      version: (lastVersion?.version ?? 0) + 1,
-      content,
-      createdBy: userId,
-    },
-  });
+  if (hasContent) {
+    const lastVersion = await db.sectionVersion.findFirst({
+      where: { sectionId: section.id },
+      orderBy: { version: "desc" },
+      select: { version: true },
+    });
+    await db.sectionVersion.create({
+      data: {
+        sectionId: section.id,
+        version: (lastVersion?.version ?? 0) + 1,
+        content,
+        createdBy: userId,
+      },
+    });
+  }
 
   return NextResponse.json(section);
 }

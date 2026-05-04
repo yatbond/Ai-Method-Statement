@@ -48,11 +48,11 @@ export async function processGapAnalysis(
     // Pool A: project document passages ordered by authority rank (highest first)
     const projectPassages = await db.sourcePassage.findMany({
       where: {
-        sourceDocument: { projectId: ms.project.id },
+        projectDocument: { projectId: ms.project.id },
         contentType: { in: ["text", "table"] },
       },
       orderBy: [
-        { sourceDocument: { authorityRank: "asc" } },
+        { projectDocument: { authorityRank: "asc" } },
         { pageNumber: "asc" },
       ],
       take: 100,
@@ -62,9 +62,9 @@ export async function processGapAnalysis(
         contentType: true,
         sectionHeading: true,
         pageNumber: true,
-        sourceDocument: {
+        projectDocument: {
           select: {
-            title: true,
+            filename: true,
             authorityRank: true,
           },
         },
@@ -98,8 +98,8 @@ export async function processGapAnalysis(
       contentType: p.contentType,
       sectionHeading: p.sectionHeading,
       pageNumber: p.pageNumber,
-      authorityRank: p.sourceDocument?.authorityRank,
-      sourceDocumentTitle: p.sourceDocument?.title ?? undefined,
+      authorityRank: p.projectDocument?.authorityRank,
+      sourceDocumentTitle: p.projectDocument?.filename ?? undefined,
     }));
 
     const poolB: PassageContext[] = retrievalResults.flatMap((r) =>

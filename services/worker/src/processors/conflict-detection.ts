@@ -38,17 +38,17 @@ export async function processConflictDetection(
     // Pool A: project document passages
     const projectPassages = await db.sourcePassage.findMany({
       where: {
-        sourceDocument: { projectId: ms.project.id },
+        projectDocument: { projectId: ms.project.id },
         contentType: { in: ["text", "table"] },
       },
-      orderBy: [{ sourceDocument: { authorityRank: "asc" } }, { pageNumber: "asc" }],
+      orderBy: [{ projectDocument: { authorityRank: "asc" } }, { pageNumber: "asc" }],
       take: 60,
       select: {
         id: true,
         extractedText: true,
         contentType: true,
         pageNumber: true,
-        sourceDocument: { select: { title: true, authorityRank: true, documentType: true } },
+        projectDocument: { select: { filename: true, authorityRank: true, documentType: true } },
       },
     });
 
@@ -78,8 +78,8 @@ export async function processConflictDetection(
       passageId: p.id,
       content: p.extractedText,
       contentType: p.contentType,
-      sourceRef: `DOC-${i + 1} (${p.sourceDocument?.title ?? "Project doc"}, p.${p.pageNumber ?? "?"})`,
-      authorityRank: p.sourceDocument?.authorityRank,
+      sourceRef: `DOC-${i + 1} (${p.projectDocument?.filename ?? "Project doc"}, p.${p.pageNumber ?? "?"})`,
+      authorityRank: p.projectDocument?.authorityRank,
     }));
 
     const poolB: ConflictPassage[] = retrievalResults.flatMap((r) =>

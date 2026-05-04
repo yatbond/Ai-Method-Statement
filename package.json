@@ -13,6 +13,11 @@
     "db:migrate": "turbo run db:migrate",
     "db:seed": "turbo run db:seed",
     "db:studio": "cd packages/database && pnpm prisma studio",
+    "railway:web:build": "pnpm --filter @ams/database db:generate && pnpm --filter @ams/web build",
+    "railway:web:start": "pnpm --filter @ams/web start:railway",
+    "railway:worker:build": "pnpm --filter @ams/database db:generate",
+    "railway:worker:start": "pnpm --filter @ams/worker start:railway",
+    "railway:migrate": "pnpm --filter @ams/database db:migrate:prod",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
     "clean": "turbo run clean && rm -rf node_modules"
   },

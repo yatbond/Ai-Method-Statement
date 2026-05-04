@@ -38,7 +38,7 @@ export async function GET(
     const fileBuffer = await storage.download(exportRecord.fileKey);
     const filename = `${ms.title.replace(/[^a-z0-9]/gi, "_")}.docx`;
 
-    return new NextResponse(fileBuffer, {
+    return new NextResponse(new Uint8Array(fileBuffer), {
       headers: {
         "Content-Type":
           "application/vnd.openxmlformats-officedocument.wordprocessingml.document",

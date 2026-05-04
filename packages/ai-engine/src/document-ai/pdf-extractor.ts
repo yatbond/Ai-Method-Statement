@@ -18,7 +18,7 @@ export async function extractPdf(buffer: Buffer): Promise<DocumentExtractionResu
   // Dynamic import — keeps the module optional in environments that don't need it
   let pdfParse: (buf: Buffer, options?: any) => Promise<any>;
   try {
-    pdfParse = (await import("pdf-parse")).default;
+    pdfParse = require("pdf-parse") as (buf: Buffer, options?: any) => Promise<any>;
   } catch {
     throw new Error(
       "pdf-parse is not installed. Run: pnpm add pdf-parse --filter @ams/ai-engine"

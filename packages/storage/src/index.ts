@@ -3,6 +3,8 @@
 // Local filesystem for dev; S3-compatible for production.
 // =============================================================================
 
+import path from "node:path";
+
 export interface UploadResult {
   key: string;
   size: number;
@@ -26,17 +28,56 @@ export function createStorageProvider(): StorageProvider {
 
   if (provider === "s3") {
     const { S3StorageProvider } = require("./s3-provider");
+    const bucket = process.env.AWS_S3_BUCKET ?? process.env.STORAGE_BUCKET;
+    const endpoint =
+      process.env.S3_ENDPOINT ??
+      process.env.STORAGE_ENDPOINT ??
+      (process.env.CLOUDFLARE_R2_ACCOUNT_ID
+        ? `https://${process.env.CLOUDFLARE_R2_ACCOUNT_ID}.r2.cloudflarestorage.com`
+        : undefined);
+    const accessKeyId = process.env.AWS_ACCESS_KEY_ID ?? process.env.CLOUDFLARE_R2_ACCESS_KEY_ID;
+    const secretAccessKey = process.env.AWS_SECRET_ACCESS_KEY ?? process.env.CLOUDFLARE_R2_SECRET_ACCESS_KEY;
+
+    if (!bucket) {
+      throw new Error("S3 storage is enabled, but AWS_S3_BUCKET is not configured.");
+    }
+    if (!accessKeyId || !secretAccessKey) {
+      throw new Error("S3 storage is enabled, but S3/R2 access key credentials are not configured.");
+    }
+
     return new S3StorageProvider({
-      bucket: process.env.AWS_S3_BUCKET!,
-      region: process.env.AWS_REGION ?? "eu-west-2",
-      accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-      endpoint: process.env.S3_ENDPOINT, // for MinIO
+      bucket,
+      region: process.env.AWS_REGION ?? (process.env.CLOUDFLARE_R2_ACCOUNT_ID ? "auto" : "eu-west-2"),
+      accessKeyId,
+      secretAccessKey,
+      endpoint,
+      forcePathStyle:
+        process.env.S3_FORCE_PATH_STYLE === "true" ||
+        Boolean(endpoint && /localhost|127\.0\.0\.1|minio/i.test(endpoint)),
     });
   }
 
   const { LocalStorageProvider } = require("./local-provider");
-  return new LocalStorageProvider(
-    process.env.LOCAL_STORAGE_PATH ?? "./.storage"
-  );
+  return new LocalStorageProvider(resolveLocalStoragePath());
+}
+
+function resolveLocalStoragePath() {
+  const configuredPath = process.env.LOCAL_STORAGE_PATH ?? "./.storage";
+  if (path.isAbsolute(configuredPath)) return configuredPath;
+
+  return path.resolve(process.env.AMS_REPO_ROOT ?? findRepoRoot(process.cwd()), configuredPath);
+}
+
+function findRepoRoot(startDir: string) {
+  let currentDir = path.resolve(startDir);
+  while (true) {
+    try {
+      require("node:fs").accessSync(path.join(currentDir, "pnpm-workspace.yaml"));
+      return currentDir;
+    } catch {
+      const parentDir = path.dirname(currentDir);
+      if (parentDir === currentDir) return startDir;
+      currentDir = parentDir;
+    }
+  }
 }

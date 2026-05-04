@@ -31,10 +31,27 @@ export interface DocumentExtractionResult {
   errors: Array<{ page: number; message: string }>;
 }
 
+export interface DocumentAIBatchResult {
+  batchStartPage: number;
+  batchEndPage: number;
+  totalPages: number;
+  chunks: ExtractedChunk[];
+  lowConfidencePages: number[];
+  errors: Array<{ page: number; message: string }>;
+}
+
 export interface DocumentAIProvider {
   extract(buffer: Buffer, mimeType: string): Promise<DocumentExtractionResult>;
   readonly provider: string;
 }
+
+export type DocumentAIProgress = {
+  stage: string;
+  processedPages?: number;
+  totalPages?: number;
+  batchStartPage?: number;
+  batchEndPage?: number;
+};
 
 // ── Native provider (built-in PDF + DOCX parsing) ────────────────────────────
 
@@ -80,7 +97,7 @@ export class NativeDocumentAIProvider implements DocumentAIProvider {
 
 // ── Factory ───────────────────────────────────────────────────────────────────
 
-type DocAIProvider = "native" | "gemini" | "ollama" | "openrouter";
+type DocAIProvider = "native" | "gemini" | "ollama" | "openrouter" | "zai";
 
 export function createDocumentAIProvider(config?: {
   provider?: DocAIProvider;
@@ -105,6 +122,10 @@ export async function createDocumentAIProviderAsync(config?: {
   apiKey?: string;
   model?: string;
   baseURL?: string;
+  shouldCancel?: () => Promise<boolean>;
+  onProgress?: (progress: DocumentAIProgress) => Promise<void>;
+  onBatchComplete?: (batch: DocumentAIBatchResult) => Promise<void>;
+  completedPageRanges?: Array<{ startPage: number; endPage: number }>;
 }): Promise<DocumentAIProvider> {
   const provider = config?.provider ?? "native";
 
@@ -117,15 +138,13 @@ export async function createDocumentAIProviderAsync(config?: {
     const apiKey = config?.apiKey;
     if (!apiKey) throw new Error("DOCUMENT_AI_API_KEY not configured for Gemini Document AI");
     if (!config?.model) throw new Error("DOCUMENT_AI_MODEL is required for Gemini Document AI");
-    return new GeminiDocumentAIProvider(apiKey, config.model!);
+    return new GeminiDocumentAIProvider(apiKey, config.model!, config?.shouldCancel);
   }
 
   if (provider === "ollama") {
     const { OllamaDocumentAIProvider } = await import("./ollama-provider");
-    const apiKey = config?.apiKey;
-    if (!apiKey) throw new Error("DOCUMENT_AI_API_KEY not configured for Ollama Document AI");
     if (!config?.model) throw new Error("DOCUMENT_AI_MODEL is required for Ollama Document AI");
-    return new OllamaDocumentAIProvider(apiKey, config.model!, config?.baseURL);
+    return new OllamaDocumentAIProvider(config?.apiKey ?? "ollama", config.model!, config?.baseURL, config?.shouldCancel);
   }
 
   if (provider === "openrouter") {
@@ -134,6 +153,21 @@ export async function createDocumentAIProviderAsync(config?: {
     if (!apiKey) throw new Error("DOCUMENT_AI_API_KEY not configured for OpenRouter Document AI");
     if (!config?.model) throw new Error("DOCUMENT_AI_MODEL is required for OpenRouter Document AI");
     return new OpenRouterDocumentAIProvider(apiKey, config.model!, config?.baseURL);
+  }
+
+  if (provider === "zai") {
+    const { ZaiDocumentAIProvider } = await import("./zai-provider");
+    const apiKey = config?.apiKey;
+    if (!apiKey) throw new Error("DOCUMENT_AI_API_KEY not configured for Z.ai GLM-OCR");
+    return new ZaiDocumentAIProvider(
+      apiKey,
+      config?.model ?? "glm-ocr",
+      config?.baseURL,
+      config?.shouldCancel,
+      config?.onProgress,
+      config?.onBatchComplete,
+      config?.completedPageRanges
+    );
   }
 
   throw new Error(`Unknown Document AI provider: "${provider}"`);

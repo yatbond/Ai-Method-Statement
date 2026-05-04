@@ -35,7 +35,7 @@ export async function GET(
     orderBy: [{ pool: "asc" }, { indexNumber: "asc" }],
     include: {
       sourceDocument: {
-        select: { id: true, title: true, documentType: true, authorityRank: true },
+        select: { id: true, filename: true, documentType: true, authorityRank: true },
       },
       sourcePassage: {
         select: {
@@ -113,7 +113,7 @@ export async function POST(
       createdBy: userId,
     },
     include: {
-      sourceDocument: { select: { id: true, title: true, documentType: true } },
+      sourceDocument: { select: { id: true, filename: true, documentType: true } },
       sourcePassage: {
         select: {
           id: true,

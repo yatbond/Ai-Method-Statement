@@ -59,9 +59,12 @@ export class OpenAIImageGenProvider implements ImageGenProvider {
         response_format: "b64_json",
       });
 
-      const data = response.data[0];
+      const data = response.data?.[0];
+      if (!data?.b64_json) {
+        throw new Error("OpenAI image generation returned no image data");
+      }
       return {
-        imageData: Buffer.from(data.b64_json!, "base64"),
+        imageData: Buffer.from(data.b64_json, "base64"),
         mimeType: "image/png",
         provider: this.provider,
         model: this.model,
@@ -78,9 +81,12 @@ export class OpenAIImageGenProvider implements ImageGenProvider {
       response_format: "b64_json",
     });
 
-    const data = response.data[0];
+    const data = response.data?.[0] as any;
+    if (!data?.b64_json) {
+      throw new Error("OpenAI image generation returned no image data");
+    }
     return {
-      imageData: Buffer.from((data as any).b64_json!, "base64"),
+      imageData: Buffer.from(data.b64_json, "base64"),
       mimeType: "image/png",
       provider: this.provider,
       model: this.model,
@@ -162,9 +168,12 @@ export class OllamaImageGenProvider implements ImageGenProvider {
       response_format: "b64_json",
     });
 
-    const data = response.data[0];
+    const data = response.data?.[0];
+    if (!data?.b64_json) {
+      throw new Error("Ollama image generation returned no image data");
+    }
     return {
-      imageData: Buffer.from(data.b64_json!, "base64"),
+      imageData: Buffer.from(data.b64_json, "base64"),
       mimeType: "image/png",
       provider: this.provider,
       model: this.model,
@@ -214,9 +223,12 @@ export class OpenRouterImageGenProvider implements ImageGenProvider {
       response_format: "b64_json",
     });
 
-    const data = response.data[0];
+    const data = response.data?.[0];
+    if (!data?.b64_json) {
+      throw new Error("OpenRouter image generation returned no image data");
+    }
     return {
-      imageData: Buffer.from(data.b64_json!, "base64"),
+      imageData: Buffer.from(data.b64_json, "base64"),
       mimeType: "image/png",
       provider: this.provider,
       model: this.model,

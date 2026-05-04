@@ -44,7 +44,6 @@ export default async function DocumentDetailPage({
       select: {
         id: true,
         filename: true,
-        title: true,
         documentType: true,
         status: true,
         pageCount: true,
@@ -90,14 +89,14 @@ export default async function DocumentDetailPage({
         <span className="mx-2">/</span>
         <Link href={`/projects/${id}/documents`} className="hover:text-gray-600">Documents</Link>
         <span className="mx-2">/</span>
-        <span className="text-gray-600 truncate">{doc.title ?? doc.filename}</span>
+        <span className="text-gray-600 truncate">{doc.filename}</span>
       </nav>
 
       {/* Document header */}
       <div className="bg-white rounded-xl border border-gray-200 p-5 mb-6">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h1 className="text-lg font-semibold text-gray-900">{doc.title ?? doc.filename}</h1>
+            <h1 className="text-lg font-semibold text-gray-900">{doc.filename}</h1>
             <p className="text-sm text-gray-500 mt-0.5">{doc.filename}</p>
           </div>
           <span

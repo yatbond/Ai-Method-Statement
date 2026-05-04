@@ -16,9 +16,8 @@
 // REQ-RAG-005: Project documents and user confirmations always outrank results.
 // =============================================================================
 
-import type { PrismaClient } from "@prisma/client";
 import type { EmbeddingProvider } from "../embedding/index";
-import { vectorSearch, keywordSearch } from "@ams/database";
+import { vectorSearch, keywordSearch, type PrismaClient } from "@ams/database";
 import { reciprocalRankFusion } from "./hybrid-ranker";
 import { explainResult, type ExplanationContext, type ExplainedResult } from "./explanation";
 
