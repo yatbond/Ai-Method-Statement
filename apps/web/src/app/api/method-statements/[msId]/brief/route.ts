@@ -48,7 +48,7 @@ export async function POST(
       project: {
         select: {
           documents: {
-            select: { id: true, title: true, documentType: true, authorityRank: true },
+            select: { id: true, filename: true, documentType: true, authorityRank: true },
             orderBy: { authorityRank: "asc" },
             take: 20,
           },
@@ -58,10 +58,6 @@ export async function POST(
         where: { status: { in: ["CONFIRMED_BY_USER", "CONFIRMED_BY_DOCUMENT"] } },
         select: { category: true, question: true, answer: true },
       },
-      gapItems_missing: {
-        select: { category: true },
-        where: { status: { in: ["MISSING", "TO_BE_CONFIRMED"] } },
-      } as any,
       conflicts: {
         where: { resolution: "UNRESOLVED" },
         select: { topic: true },
@@ -96,7 +92,7 @@ export async function POST(
     title: ms.title,
     projectDocuments: ms.project.documents.map((d) => ({
       id: d.id,
-      title: d.title,
+      title: d.filename,
       type: d.documentType,
     })),
     retrievedPrecedents: ms.retrievals.map((r) => ({

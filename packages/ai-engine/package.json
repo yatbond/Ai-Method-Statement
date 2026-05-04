@@ -10,19 +10,22 @@
     "./specificity": "./src/specificity/index.ts"
   },
   "dependencies": {
-    "@google/generative-ai": "^0.21.0",
-    "@anthropic-ai/sdk": "^0.33.0",
+    "@ams/database": "workspace:*",
     "@ams/shared": "workspace:*",
-    "pdf-parse": "^1.1.1",
-    "mammoth": "^1.8.0",
+    "@anthropic-ai/sdk": "^0.33.0",
+    "@google/genai": "^1.50.1",
+    "@google/generative-ai": "^0.21.0",
+    "crypto": "^1.0.1",
     "docx": "^9.0.0",
-    "crypto": "^1.0.1"
+    "mammoth": "^1.8.0",
+    "pdf-lib": "^1.17.1",
+    "pdf-parse": "^1.1.1"
   },
   "optionalDependencies": {
     "openai": "^4.77.0"
   },
   "devDependencies": {
-    "typescript": "^5.7.0",
-    "@types/node": "^22.0.0"
+    "@types/node": "^22.0.0",
+    "typescript": "^5.7.0"
   }
 }

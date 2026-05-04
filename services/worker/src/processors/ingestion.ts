@@ -10,14 +10,16 @@
 //  6. Queue embedding of all new passages
 // =============================================================================
 
-import type { Job } from "bullmq";
+import { UnrecoverableError, type Job } from "bullmq";
 import { db, DocumentStatus } from "@ams/database";
-import { createDocumentAIProvider } from "@ams/ai-engine";
+import { createDocumentAIProviderAsync, getDocumentAIConfigFromEnv } from "@ams/ai-engine";
 import { createStorageProvider } from "@ams/storage";
 import { embeddingQueue } from "../queues";
 import { taggingQueue } from "../queues";
+import { loadRootEnv } from "../lib/load-root-env";
 
 export async function processIngestion(job: Job<{ documentId: string }>) {
+  loadRootEnv();
   const { documentId } = job.data;
 
   await db.workerJob.updateMany({
@@ -44,8 +46,13 @@ export async function processIngestion(job: Job<{ documentId: string }>) {
     await job.updateProgress(15);
 
     // Step 2: Extract content
-    const docAI = createDocumentAIProvider({ provider: "native" });
+    const docAI = await createDocumentAIProviderAsync(getDocumentAIConfigFromEnv());
     const extraction = await docAI.extract(fileBuffer, document.mimeType);
+    if (extraction.chunks.length === 0) {
+      throw new Error(
+        "No extractable text was found. This document appears to be scanned; choose a Document AI OCR provider such as Z.ai GLM-OCR, Gemini, or Ollama before ingesting it."
+      );
+    }
 
     await job.updateProgress(50);
 
@@ -136,14 +143,26 @@ export async function processIngestion(job: Job<{ documentId: string }>) {
       errors: extraction.errors,
     };
   } catch (error: any) {
+    const permanent = isPermanentIngestionError(error);
+    const willRetry = !permanent && job.attemptsMade + 1 < (job.opts.attempts ?? 1);
     await db.projectDocument.update({
       where: { id: documentId },
       data: { status: DocumentStatus.ERROR },
     });
     await db.workerJob.updateMany({
       where: { sourceDocumentId: documentId, jobType: "document.ingest" },
-      data: { status: "FAILED", completedAt: new Date(), errorMessage: error.message },
+      data: {
+        status: (willRetry ? "RETRYING" : "FAILED") as any,
+        completedAt: willRetry ? null : new Date(),
+        errorMessage: error.message,
+      },
     });
+    if (permanent) throw new UnrecoverableError(error.message);
     throw error;
   }
+}
+
+function isPermanentIngestionError(error: any) {
+  const message = String(error?.message ?? error);
+  return /quota exceeded|insufficient balance|no resource package|supports PDFs up to 50 MB|rejected the API key|No extractable text was found|API key not configured/i.test(message);
 }

@@ -39,7 +39,7 @@ export async function processExport(job: Job<ExportJobPayload>) {
       include: {
         trade: { select: { name: true } },
         activity: { select: { name: true } },
-        project: { select: { name: true, client: true } },
+        project: { select: { name: true } },
         sections: {
           where: { status: { not: "NOT_STARTED" } },
           orderBy: { orderIndex: "asc" },
@@ -61,7 +61,7 @@ export async function processExport(job: Job<ExportJobPayload>) {
         referenceMarkers: {
           where: { deletedAt: null },
           include: {
-            sourceDocument: { select: { title: true } },
+            sourceDocument: { select: { filename: true } },
             sourcePassage: {
               select: {
                 extractedText: true,
@@ -86,7 +86,7 @@ export async function processExport(job: Job<ExportJobPayload>) {
       indexNumber: m.indexNumber,
       pool: m.pool as "A" | "B",
       sourceTitle:
-        m.sourceDocument?.title ??
+        m.sourceDocument?.filename ??
         m.sourcePassage?.historicalMethodStatement?.title ??
         "Unknown source",
       sourceRef: m.sourcePageOrSection,
@@ -100,8 +100,10 @@ export async function processExport(job: Job<ExportJobPayload>) {
       trade: ms.trade.name,
       activity: ms.activity?.name,
       projectName: ms.project.name,
-      client: ms.project.client ?? undefined,
-      sections: ms.sections,
+      sections: ms.sections.map((section) => ({
+        ...section,
+        content: section.content ?? "",
+      })),
       references,
       unresolvedGaps: ms.gapItems,
       unresolvedConflicts: ms.conflicts,

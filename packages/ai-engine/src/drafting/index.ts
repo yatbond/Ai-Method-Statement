@@ -17,6 +17,7 @@ export interface SourcePassageForDraft {
   contentType: string;
   pageNumber?: number | null;
   sectionHeading?: string | null;
+  sourceDocumentId?: string | null;
   sourceRef: string;
   pool: "A" | "B";
   authorityRank?: number;
@@ -31,6 +32,7 @@ export interface DraftContext {
   brief: MethodStatementBrief;
   confirmedAnswers: Array<{ category: string; question: string; answer: string }>;
   passages: SourcePassageForDraft[];
+  sectionUserInput?: string | null;
   previousContent?: string;
 }
 
@@ -107,6 +109,9 @@ ${briefSummary || "(no brief yet)"}
 Confirmed answers from gap analysis:
 ${confirmedText || "(none)"}
 
+User input for this section:
+${context.sectionUserInput?.trim() || "(none)"}
+
 === POOL B: Current Project Documents (highest authority — use first) ===
 ${poolBText || "(no project document passages)"}
 
@@ -119,7 +124,9 @@ INSTRUCTION: ${sectionInstruction}
 
 Output rules:
 - Use markdown (headings, lists, tables as appropriate)
+- Treat user input as confirmed user-provided drafting context unless it conflicts with higher-authority project documents
 - Append [SRC:passage_id] after each sentence that draws on a specific source
+- Do not add source markers to facts that come only from user input; use clear wording and include [GAP: source required] if documentary support is required
 - Output [GAP: description] where information is genuinely missing — never fabricate
 - Do not add a section heading (it is rendered by the UI)
 - Be specific and concise — no fluency padding`;
@@ -134,6 +141,11 @@ Output rules:
   });
 
   const content = response.content.trim();
+  if (!content) {
+    throw new Error(
+      `Drafting LLM returned an empty response for "${context.sectionTitle}". Try another Drafting LLM/model or add confirmed answers/source material before drafting.`
+    );
+  }
 
   // Extract cited passage IDs from [SRC:xxx] markers
   const srcRegex = /\[SRC:([a-z0-9]+)\]/gi;

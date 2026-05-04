@@ -1,0 +1,532 @@
+/*
+  Implementation note — updated 2026-05-04
+
+  This file remains the frontend redesign prototype/reference. The running app now
+  implements the core navigation model from this prototype:
+  - Dashboard
+  - Projects
+  - Trades
+  - Draft Editor
+  - Conflict Review
+  - Export Review
+  - Settings
+
+  Current implementation additions since this prototype:
+  - Settings includes Import, Document AI Settings, AI Services, File Storage
+    test, ingestion status, batch filters, terminate controls, and hosted-safe
+    browser PDF upload.
+  - Draft Editor supports section-level user input before drafting. The LLM uses
+    user input, uploaded project documents, selected precedent passages, gaps,
+    and conflicts to draft sections with explicit [GAP:] markers.
+  - Trades / Knowledge Base document pages paginate passages instead of showing
+    only the first 20 passages.
+  - Conflict Review is kept as a separate review surface after drafting.
+  - Browser upload is the preferred hosted workflow. Local folder import remains
+    a local-development convenience only.
+*/
+
+import React, { useMemo, useState } from "react";
+
+/*
+  AI Method Statement Studio UI Prototype — Revised Navigation
+  Revision based on user comments:
+  - Dashboard remains.
+  - Projects added as a main panel to view method statements by project and trade.
+  - Trades added as a main panel to browse/search relevant historical method statements by trade.
+  - New MS Wizard is no longer a side-panel item; it now lives inside Draft Editor.
+  - Gap & Suggestions is no longer a side-panel item; it is MS-specific and lives inside Draft Editor.
+  - Visual Gen is no longer a side-panel item; it is integrated inside Draft Editor.
+  - Conflicts remains a separate review panel after editing.
+  - Export Review remains.
+  - No external icon or animation dependencies.
+*/
+
+function Icon({ name = "dot", size = 18, className = "" }) {
+  const common = {
+    width: size,
+    height: size,
+    viewBox: "0 0 24 24",
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: 2,
+    strokeLinecap: "round",
+    strokeLinejoin: "round",
+    className,
+    "aria-hidden": true,
+  };
+
+  const icons = {
+    file: <svg {...common}><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6" /><path d="M8 13h8" /><path d="M8 17h5" /></svg>,
+    upload: <svg {...common}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><path d="M17 8l-5-5-5 5" /><path d="M12 3v12" /></svg>,
+    search: <svg {...common}><circle cx="11" cy="11" r="8" /><path d="M21 21l-4.35-4.35" /></svg>,
+    warning: <svg {...common}><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><path d="M12 9v4" /><path d="M12 17h.01" /></svg>,
+    check: <svg {...common}><circle cx="12" cy="12" r="10" /><path d="M8 12.5l2.5 2.5L16 9" /></svg>,
+    help: <svg {...common}><circle cx="12" cy="12" r="10" /><path d="M9.1 9a3 3 0 1 1 5.8 1c-.9 1.4-2.9 1.5-2.9 3" /><path d="M12 17h.01" /></svg>,
+    table: <svg {...common}><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M3 10h18" /><path d="M9 4v16" /><path d="M15 4v16" /></svg>,
+    chart: <svg {...common}><path d="M4 19V5" /><path d="M4 19h16" /><rect x="7" y="11" width="3" height="5" /><rect x="12" y="7" width="3" height="9" /><rect x="17" y="9" width="3" height="7" /></svg>,
+    workflow: <svg {...common}><rect x="3" y="4" width="6" height="5" rx="1" /><rect x="15" y="4" width="6" height="5" rx="1" /><rect x="9" y="15" width="6" height="5" rx="1" /><path d="M9 6.5h6" /><path d="M18 9v3a3 3 0 0 1-3 3h-3" /><path d="M6 9v3a3 3 0 0 0 3 3h3" /></svg>,
+    image: <svg {...common}><rect x="3" y="5" width="18" height="14" rx="2" /><circle cx="8" cy="10" r="1.5" /><path d="M21 15l-5-5L5 19" /></svg>,
+    download: <svg {...common}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><path d="M7 10l5 5 5-5" /><path d="M12 15V3" /></svg>,
+    message: <svg {...common}><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z" /></svg>,
+    shield: <svg {...common}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /><path d="M9 12l2 2 4-5" /></svg>,
+    sparkles: <svg {...common}><path d="M12 3l1.7 5.3L19 10l-5.3 1.7L12 17l-1.7-5.3L5 10l5.3-1.7z" /><path d="M19 16l.8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8z" /></svg>,
+    eye: <svg {...common}><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z" /><circle cx="12" cy="12" r="3" /></svg>,
+    refresh: <svg {...common}><path d="M21 12a9 9 0 0 1-15 6.7" /><path d="M3 12a9 9 0 0 1 15-6.7" /><path d="M21 3v6h-6" /><path d="M3 21v-6h6" /></svg>,
+    edit: <svg {...common}><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z" /></svg>,
+    filter: <svg {...common}><path d="M3 5h18" /><path d="M6 12h12" /><path d="M10 19h4" /></svg>,
+    chevron: <svg {...common}><path d="M9 18l6-6-6-6" /></svg>,
+    dot: <svg {...common}><circle cx="12" cy="12" r="4" /></svg>,
+    building: <svg {...common}><path d="M3 21h18" /><path d="M5 21V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v16" /><path d="M9 8h1" /><path d="M14 8h1" /><path d="M9 12h1" /><path d="M14 12h1" /><path d="M9 16h1" /><path d="M14 16h1" /></svg>,
+    filecheck: <svg {...common}><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6" /><path d="M8 16l2 2 5-6" /></svg>,
+    link: <svg {...common}><path d="M10 13a5 5 0 0 0 7.5.5l2-2a5 5 0 0 0-7-7l-1.2 1.2" /><path d="M14 11a5 5 0 0 0-7.5-.5l-2 2a5 5 0 0 0 7 7l1.2-1.2" /></svg>,
+    wand: <svg {...common}><path d="M15 4l5 5" /><path d="M14 5l-9 9a2 2 0 0 0 0 3l2 2a2 2 0 0 0 3 0l9-9" /><path d="M6 2v2" /><path d="M4 4h4" /><path d="M20 14v2" /><path d="M18 16h4" /></svg>,
+    compare: <svg {...common}><path d="M6 3v18" /><path d="M18 3v18" /><path d="M6 7h8" /><path d="M14 7l-3-3" /><path d="M14 7l-3 3" /><path d="M18 17h-8" /><path d="M10 17l3-3" /><path d="M10 17l3 3" /></svg>,
+    settings: <svg {...common}><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1A2 2 0 1 1 4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.6-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.3 7A2 2 0 1 1 7 4.2l.1.1a1.7 1.7 0 0 0 1.9.3 1.7 1.7 0 0 0 1-1.6V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1A2 2 0 1 1 19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.1a2 2 0 1 1 0 4H21a1.7 1.7 0 0 0-1.6 1z" /></svg>,
+    layers: <svg {...common}><path d="M12 2 2 7l10 5 10-5-10-5z" /><path d="m2 17 10 5 10-5" /><path d="m2 12 10 5 10-5" /></svg>,
+    folder: <svg {...common}><path d="M3 6a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /></svg>,
+  };
+  return icons[name] || icons.dot;
+}
+
+const trades = [
+  { name: "ELS / Excavation", count: 386, docs: 1240, lastUsed: "2 days ago", common: ["staged excavation", "strutting", "monitoring", "dewatering"] },
+  { name: "Concrete Works", count: 514, docs: 1680, lastUsed: "today", common: ["pour sequence", "pump layout", "curing", "cube tests"] },
+  { name: "Lifting Operations", count: 242, docs: 760, lastUsed: "yesterday", common: ["lifting plan", "crane radius", "exclusion zone", "signaller"] },
+  { name: "Façade", count: 178, docs: 530, lastUsed: "4 days ago", common: ["panel install", "bracket fixing", "access platform", "waterproofing"] },
+  { name: "Drainage", count: 301, docs: 890, lastUsed: "last week", common: ["trench support", "pipe laying", "testing", "backfill"] },
+  { name: "MEP", count: 455, docs: 1430, lastUsed: "today", common: ["installation", "testing", "commissioning", "isolation"] },
+];
+
+const projects = [
+  { code: "P-2307", name: "Central Station Extension", activeMS: 18, gaps: 42, conflicts: 7, readiness: 72, trades: ["ELS / Excavation", "Concrete Works", "MEP"] },
+  { code: "P-2411", name: "Harbour Road Commercial Tower", activeMS: 9, gaps: 21, conflicts: 3, readiness: 81, trades: ["Concrete Works", "Façade", "Lifting Operations"] },
+  { code: "P-2502", name: "Eastern Drainage Upgrade", activeMS: 14, gaps: 36, conflicts: 5, readiness: 68, trades: ["Drainage", "Roadworks", "Utilities"] },
+];
+
+const methodStatements = [
+  { id: "MS-001", project: "P-2307", title: "Basement Excavation and Strutting Works", trade: "ELS / Excavation", status: "Drafting", readiness: 62, gaps: 7, conflicts: 2, updated: "Today 10:42" },
+  { id: "MS-002", project: "P-2307", title: "Concrete Pour to Transfer Slab", trade: "Concrete Works", status: "Review", readiness: 84, gaps: 1, conflicts: 0, updated: "Yesterday 18:10" },
+  { id: "MS-003", project: "P-2411", title: "Tower Crane Lifting for Façade Panels", trade: "Lifting Operations", status: "Drafting", readiness: 71, gaps: 5, conflicts: 1, updated: "Today 09:05" },
+  { id: "MS-004", project: "P-2502", title: "Drainage Pipe Laying and Testing", trade: "Drainage", status: "Ready to Export", readiness: 91, gaps: 0, conflicts: 0, updated: "Mon 16:30" },
+];
+
+const retrievedDocs = [
+  { title: "ELS Excavation and Strutting Method Statement", trade: "ELS / Excavation", match: 92, reason: "Same trade, staged excavation, temporary strutting, monitoring requirements", status: "Approved precedent" },
+  { title: "Basement Excavation with Dewatering Arrangement", trade: "ELS / Excavation", match: 86, reason: "Similar groundwater control, spoil removal route, permit workflow", status: "Approved precedent" },
+  { title: "Temporary Works Inspection and Hold Point Procedure", trade: "Temporary Works", match: 78, reason: "Relevant inspection and hold-point control language", status: "Cross-trade suggestion" },
+];
+
+const gaps = [
+  { topic: "Excavation stages", status: "Missing", question: "Confirm excavation levels and sequence for each stage.", suggestions: ["Stage excavation to first strut level", "Excavate by berm method", "Top-down sequence"], source: "Similar approved MS x 8" },
+  { topic: "Plant and equipment", status: "Suggested-from-precedent", question: "Confirm equipment to be used for excavation and spoil removal.", suggestions: ["35-ton excavator", "Dump truck", "Mobile crane", "Water pump"], source: "Similar approved MS x 12" },
+  { topic: "Monitoring frequency", status: "Conflict", question: "Project specification requires daily monitoring; precedent says weekly.", suggestions: ["Use current specification: daily monitoring", "Request clarification", "Manual override"], source: "Spec §7.4 vs MS-ELS-018 p.12" },
+  { topic: "Emergency trigger level response", status: "To-be-confirmed", question: "Confirm action if settlement exceeds alert/action/alarm level.", suggestions: ["Stop works and notify CM", "Review monitoring data", "Implement contingency support"], source: "Current RA + similar MS x 5" },
+];
+
+const sections = [
+  { name: "Purpose", score: 88, refs: 3, issues: 0 },
+  { name: "Scope of Works", score: 74, refs: 5, issues: 2 },
+  { name: "References", score: 92, refs: 8, issues: 0 },
+  { name: "Roles and Responsibilities", score: 67, refs: 2, issues: 3 },
+  { name: "Plant, Tools and Equipment", score: 58, refs: 4, issues: 5 },
+  { name: "Construction Sequence", score: 62, refs: 9, issues: 6 },
+  { name: "Safety Controls", score: 76, refs: 7, issues: 2 },
+  { name: "QA/QC and Hold Points", score: 71, refs: 6, issues: 3 },
+];
+
+const visualSuggestions = [
+  { type: "Table Gen", icon: "table", section: "Plant, Tools and Equipment", reason: "Equipment items detected in paragraph form", output: "Editable Word table" },
+  { type: "Diagram Gen", icon: "workflow", section: "Construction Sequence", reason: "Sequential method steps detected", output: "Editable Mermaid/SVG sequence diagram" },
+  { type: "Chart Gen", icon: "chart", section: "Roles and Responsibilities", reason: "Reporting hierarchy detected", output: "Organization chart" },
+  { type: "Graphics Gen", icon: "image", section: "Access and Logistics", reason: "Site access arrangement may benefit from schematic graphic", output: "Schematic only, review required" },
+];
+
+const conflicts = [
+  { topic: "Monitoring frequency", current: "Daily monitoring during excavation", precedentA: "Weekly monitoring during excavation", precedentB: "Monitoring upon completion of each excavation stage", recommendation: "Use current project specification" },
+  { topic: "Working hours", current: "08:00–19:00 only", precedentA: "Night works allowed with permit", precedentB: "24-hour operation allowed", recommendation: "Flag for planner confirmation" },
+  { topic: "Strut inspection hold point", current: "Inspection before further excavation", precedentA: "Inspection after strut installation", precedentB: "No explicit hold point", recommendation: "Use current spec and add hold point table" },
+];
+
+function runPrototypeTests() {
+  return [
+    { name: "Navigation contains Projects and Trades", pass: true },
+    { name: "New MS Wizard is inside Draft Editor", pass: true },
+    { name: "Gap suggestions are MS-specific", pass: gaps.every((g) => g.topic && g.suggestions.length > 0) },
+    { name: "Visual Gen is integrated into Draft Editor", pass: visualSuggestions.every((v) => v.section && v.output) },
+    { name: "Each MS links to a project and trade", pass: methodStatements.every((m) => m.project && m.trade) },
+  ];
+}
+
+function Badge({ children, tone = "slate" }) {
+  const classes = {
+    slate: "bg-slate-100 text-slate-700 border-slate-200",
+    green: "bg-emerald-50 text-emerald-700 border-emerald-200",
+    amber: "bg-amber-50 text-amber-700 border-amber-200",
+    red: "bg-red-50 text-red-700 border-red-200",
+    blue: "bg-blue-50 text-blue-700 border-blue-200",
+    purple: "bg-purple-50 text-purple-700 border-purple-200",
+  };
+  return <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-medium ${classes[tone] || classes.slate}`}>{children}</span>;
+}
+
+function Card({ children, className = "" }) {
+  return <div className={`rounded-2xl border border-slate-200 bg-white shadow-sm ${className}`}>{children}</div>;
+}
+
+function SectionTitle({ icon, title, subtitle, action }) {
+  return (
+    <div className="mb-5 flex items-start justify-between gap-4">
+      <div className="flex items-start gap-3">
+        <div className="rounded-2xl bg-slate-900 p-2 text-white shadow-sm"><Icon name={icon} size={18} /></div>
+        <div>
+          <h2 className="text-xl font-semibold tracking-tight text-slate-950">{title}</h2>
+          {subtitle && <p className="mt-1 text-sm text-slate-500">{subtitle}</p>}
+        </div>
+      </div>
+      {action}
+    </div>
+  );
+}
+
+function Sidebar({ active, setActive }) {
+  const items = [
+    ["dashboard", "building", "Dashboard"],
+    ["projects", "folder", "Projects"],
+    ["trades", "layers", "Trades"],
+    ["editor", "file", "Draft Editor"],
+    ["conflict", "compare", "Conflict Review"],
+    ["export", "download", "Export Review"],
+    ["settings", "settings", "Settings"],
+  ];
+  return (
+    <aside className="flex h-full w-72 flex-col border-r border-slate-200 bg-white px-4 py-5">
+      <div className="mb-7 flex items-center gap-3 px-2">
+        <div className="rounded-2xl bg-slate-950 p-2 text-white"><Icon name="filecheck" size={22} /></div>
+        <div>
+          <div className="text-sm font-semibold text-slate-950">AI Method Statement</div>
+          <div className="text-xs text-slate-500">Studio Prototype</div>
+        </div>
+      </div>
+      <nav className="space-y-1">
+        {items.map(([key, icon, label]) => (
+          <button key={key} onClick={() => setActive(key)} className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition ${active === key ? "bg-slate-950 text-white shadow-sm" : "text-slate-600 hover:bg-slate-100 hover:text-slate-950"}`}>
+            <Icon name={icon} size={17} /><span>{label}</span>
+          </button>
+        ))}
+      </nav>
+      <div className="mt-auto rounded-2xl bg-slate-50 p-4">
+        <div className="mb-2 flex items-center gap-2 text-sm font-medium text-slate-800"><Icon name="shield" size={16} /> Workflow Logic</div>
+        <p className="text-xs leading-relaxed text-slate-500">Draft Editor is the main workspace: create new MS, edit draft, resolve gaps, and generate tables/visuals.</p>
+      </div>
+    </aside>
+  );
+}
+
+function TestPanel() {
+  const tests = runPrototypeTests();
+  const passed = tests.filter((t) => t.pass).length;
+  return (
+    <Card className="mt-6 p-5">
+      <div className="mb-4 flex items-center justify-between"><h3 className="font-semibold text-slate-950">Prototype Sanity Tests</h3><Badge tone={passed === tests.length ? "green" : "red"}>{passed}/{tests.length} passed</Badge></div>
+      <div className="grid grid-cols-2 gap-3">
+        {tests.map((t) => <div key={t.name} className="flex items-center gap-2 rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-700"><Icon name={t.pass ? "check" : "warning"} size={15} className={t.pass ? "text-emerald-500" : "text-red-500"} />{t.name}</div>)}
+      </div>
+    </Card>
+  );
+}
+
+function Dashboard() {
+  return (
+    <div>
+      <SectionTitle icon="building" title="Dashboard" subtitle="High-level portfolio view. Detailed project/trade navigation is handled in Projects and Trades." action={<button className="rounded-xl bg-slate-950 px-4 py-2 text-sm font-medium text-white shadow-sm">Open Draft Editor</button>} />
+      <div className="grid grid-cols-4 gap-4">
+        <Card className="p-5"><div className="text-sm text-slate-500">Active MS</div><div className="mt-2 text-3xl font-semibold">41</div><div className="mt-2 text-xs text-slate-400">Across active projects</div></Card>
+        <Card className="p-5"><div className="text-sm text-slate-500">Open Gaps</div><div className="mt-2 text-3xl font-semibold">99</div><div className="mt-2 text-xs text-slate-400">Need confirmation</div></Card>
+        <Card className="p-5"><div className="text-sm text-slate-500">Conflicts</div><div className="mt-2 text-3xl font-semibold text-red-600">15</div><div className="mt-2 text-xs text-slate-400">Require review</div></Card>
+        <Card className="p-5"><div className="text-sm text-slate-500">Avg Readiness</div><div className="mt-2 text-3xl font-semibold">74%</div><div className="mt-2 text-xs text-slate-400">Before export</div></Card>
+      </div>
+      <div className="mt-6 grid grid-cols-2 gap-6">
+        <Card className="p-5">
+          <h3 className="mb-4 font-semibold">Recently Updated Method Statements</h3>
+          <div className="space-y-3">
+            {methodStatements.map((m) => <MethodStatementRow key={m.id} m={m} compact />)}
+          </div>
+        </Card>
+        <Card className="p-5">
+          <h3 className="mb-4 font-semibold">Workflow</h3>
+          {[
+            ["1", "Draft Editor", "Start with Draft New MS wizard or select an existing MS."],
+            ["2", "Gap & Suggestions", "Resolve MS-specific missing info while editing."],
+            ["3", "Visual Gen", "Generate editable tables, charts, diagrams, and schematic graphics inside the editor."],
+            ["4", "Conflict Review", "Run source conflict review after editing."],
+            ["5", "Export Review", "Acknowledge unresolved items and export Word."],
+          ].map(([n, title, desc]) => <div key={n} className="mb-3 flex gap-3 rounded-xl bg-slate-50 p-3"><div className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-950 text-xs font-semibold text-white">{n}</div><div><div className="text-sm font-medium">{title}</div><div className="text-xs text-slate-500">{desc}</div></div></div>)}
+        </Card>
+      </div>
+      <TestPanel />
+    </div>
+  );
+}
+
+function MethodStatementRow({ m, compact = false }) {
+  return (
+    <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <div className="flex flex-wrap items-center gap-2"><Badge tone="blue">{m.project}</Badge><Badge tone="slate">{m.trade}</Badge><Badge tone={m.status === "Ready to Export" ? "green" : m.status === "Review" ? "amber" : "purple"}>{m.status}</Badge></div>
+          <h4 className="mt-2 font-semibold text-slate-950">{m.title}</h4>
+          <div className="mt-1 text-xs text-slate-500">Updated {m.updated}</div>
+        </div>
+        <div className="min-w-28 text-right">
+          <div className="text-lg font-semibold">{m.readiness}%</div>
+          <div className="text-xs text-slate-400">readiness</div>
+        </div>
+      </div>
+      {!compact && <div className="mt-4 grid grid-cols-3 gap-3 text-center text-sm"><div className="rounded-xl bg-white p-3">{m.gaps}<div className="text-xs text-slate-400">gaps</div></div><div className="rounded-xl bg-white p-3">{m.conflicts}<div className="text-xs text-slate-400">conflicts</div></div><div className="rounded-xl bg-white p-3">68<div className="text-xs text-slate-400">refs</div></div></div>}
+    </div>
+  );
+}
+
+function ProjectsPanel() {
+  const [selected, setSelected] = useState(projects[0].code);
+  const activeProject = projects.find((p) => p.code === selected) || projects[0];
+  const projectMS = methodStatements.filter((m) => m.project === selected);
+  return (
+    <div>
+      <SectionTitle icon="folder" title="Projects" subtitle="Select a project to view its method statements grouped by trade, status, gaps, conflicts, and readiness." />
+      <div className="grid grid-cols-12 gap-6">
+        <Card className="col-span-4 p-5">
+          <h3 className="mb-4 font-semibold">Project List</h3>
+          <div className="space-y-3">
+            {projects.map((p) => <button key={p.code} onClick={() => setSelected(p.code)} className={`w-full rounded-2xl p-4 text-left ${selected === p.code ? "bg-slate-950 text-white" : "bg-slate-50 text-slate-800 hover:bg-slate-100"}`}><div className="text-xs opacity-70">{p.code}</div><div className="font-semibold">{p.name}</div><div className="mt-2 text-xs opacity-70">{p.activeMS} active MS · {p.trades.length} trades</div></button>)}
+          </div>
+        </Card>
+        <div className="col-span-8 space-y-5">
+          <Card className="p-5">
+            <div className="flex items-start justify-between"><div><Badge tone="blue">{activeProject.code}</Badge><h3 className="mt-2 text-lg font-semibold">{activeProject.name}</h3><p className="mt-1 text-sm text-slate-500">Trades active in this project: {activeProject.trades.join(", ")}</p></div><button className="rounded-xl bg-slate-950 px-4 py-2 text-sm font-medium text-white">Draft New MS</button></div>
+            <div className="mt-5 grid grid-cols-4 gap-3"><div className="rounded-xl bg-slate-50 p-3 text-center"><div className="text-xl font-semibold">{activeProject.activeMS}</div><div className="text-xs text-slate-500">Active MS</div></div><div className="rounded-xl bg-amber-50 p-3 text-center"><div className="text-xl font-semibold text-amber-700">{activeProject.gaps}</div><div className="text-xs text-amber-700">Gaps</div></div><div className="rounded-xl bg-red-50 p-3 text-center"><div className="text-xl font-semibold text-red-700">{activeProject.conflicts}</div><div className="text-xs text-red-700">Conflicts</div></div><div className="rounded-xl bg-emerald-50 p-3 text-center"><div className="text-xl font-semibold text-emerald-700">{activeProject.readiness}%</div><div className="text-xs text-emerald-700">Readiness</div></div></div>
+          </Card>
+          <Card className="p-5">
+            <h3 className="mb-4 font-semibold">Method Statements in This Project</h3>
+            <div className="space-y-3">{projectMS.length ? projectMS.map((m) => <MethodStatementRow key={m.id} m={m} />) : <div className="rounded-xl bg-slate-50 p-5 text-sm text-slate-500">No method statements listed for this project in the prototype data.</div>}</div>
+          </Card>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TradesPanel() {
+  const [query, setQuery] = useState("");
+  const filtered = trades.filter((t) => t.name.toLowerCase().includes(query.toLowerCase()) || t.common.join(" ").toLowerCase().includes(query.toLowerCase()));
+  return (
+    <div>
+      <SectionTitle icon="layers" title="Trades" subtitle="Browse trades, search approved method statements, and select relevant precedent before drafting." action={<button className="rounded-xl border border-slate-200 px-4 py-2 text-sm">Manage Trade Packs</button>} />
+      <Card className="mb-6 p-5">
+        <div className="flex items-center gap-3 rounded-2xl border border-slate-200 px-4 py-3"><Icon name="search" className="text-slate-400" /><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search trade, activity, equipment, risk, method..." className="w-full bg-transparent text-sm outline-none" /></div>
+      </Card>
+      <div className="grid grid-cols-3 gap-5">
+        {filtered.map((t) => <Card key={t.name} className="p-5"><div className="flex items-start justify-between"><div><h3 className="font-semibold text-slate-950">{t.name}</h3><div className="mt-1 text-sm text-slate-500">Last used {t.lastUsed}</div></div><Icon name="layers" className="text-slate-300" /></div><div className="mt-5 grid grid-cols-2 gap-3 text-center"><div className="rounded-xl bg-slate-50 p-3"><div className="text-lg font-semibold">{t.count}</div><div className="text-xs text-slate-500">MS records</div></div><div className="rounded-xl bg-slate-50 p-3"><div className="text-lg font-semibold">{t.docs}</div><div className="text-xs text-slate-500">source docs</div></div></div><div className="mt-4 flex flex-wrap gap-2">{t.common.map((c) => <Badge key={c} tone="slate">{c}</Badge>)}</div><button className="mt-5 w-full rounded-xl bg-slate-950 px-3 py-2 text-sm font-medium text-white">Search Relevant MS</button></Card>)}
+      </div>
+      <Card className="mt-6 p-5">
+        <h3 className="mb-4 font-semibold">Search Results Preview</h3>
+        <div className="space-y-3">{retrievedDocs.map((d) => <div key={d.title} className="flex items-start justify-between rounded-2xl bg-slate-50 p-4"><div><div className="flex items-center gap-2"><h4 className="font-medium text-slate-950">{d.title}</h4><Badge tone={d.status.includes("Cross") ? "amber" : "green"}>{d.status}</Badge></div><p className="mt-1 text-sm text-slate-500">{d.reason}</p></div><div className="text-right"><div className="text-lg font-semibold">{d.match}%</div><div className="text-xs text-slate-400">match</div></div></div>)}</div>
+      </Card>
+    </div>
+  );
+}
+
+function DraftNewWizardInline() {
+  return (
+    <Card className="p-5">
+      <div className="mb-4 flex items-center justify-between"><div><h3 className="font-semibold">Draft New Method Statement Wizard</h3><p className="mt-1 text-sm text-slate-500">Start here, upload required documents, provide summary, then generate a new draft.</p></div><Badge tone="blue">Inside Draft Editor</Badge></div>
+      <div className="grid grid-cols-4 gap-4">
+        <label className="block"><span className="text-xs font-medium text-slate-600">Project</span><select className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm"><option>Central Station Extension</option><option>Harbour Road Commercial Tower</option></select></label>
+        <label className="block"><span className="text-xs font-medium text-slate-600">Trade</span><select className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm">{trades.map((t) => <option key={t.name}>{t.name}</option>)}</select></label>
+        <label className="block"><span className="text-xs font-medium text-slate-600">Work Activity</span><input className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm" defaultValue="Basement excavation and strutting works" /></label>
+        <label className="block"><span className="text-xs font-medium text-slate-600">Location / Zone</span><input className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm" defaultValue="Zone B, B2 to B4" /></label>
+      </div>
+      <div className="mt-4 grid grid-cols-3 gap-4">
+        <div className="col-span-2"><label className="block"><span className="text-xs font-medium text-slate-600">General Summary</span><textarea className="mt-2 h-24 w-full rounded-xl border border-slate-200 p-3 text-sm" defaultValue="Prepare method statement for excavation, walers and struts, spoil removal, monitoring, inspection hold points, emergency response, and interface controls." /></label></div>
+        <div><span className="text-xs font-medium text-slate-600">Required Documents</span><div className="mt-2 space-y-2">{["Specs", "Drawings", "Risk Assessment"].map((d) => <button key={d} className="flex w-full items-center justify-between rounded-xl bg-slate-50 px-3 py-2 text-sm"><span>{d}</span><Icon name="upload" size={14} /></button>)}</div></div>
+      </div>
+      <div className="mt-5 flex justify-end gap-3"><button className="rounded-xl border border-slate-200 px-4 py-2 text-sm">Save Setup</button><button className="rounded-xl bg-slate-950 px-4 py-2 text-sm font-medium text-white">Generate Draft MS</button></div>
+    </Card>
+  );
+}
+
+function GapSuggestionsInline() {
+  return (
+    <Card className="p-5">
+      <div className="mb-4 flex items-center justify-between"><div><h3 className="font-semibold">MS-Specific Gap & Suggestions</h3><p className="mt-1 text-sm text-slate-500">Resolve missing information while editing this method statement.</p></div><Badge tone="amber">7 open gaps</Badge></div>
+      <div className="space-y-3">
+        {gaps.slice(0, 3).map((g) => <div key={g.topic} className="rounded-2xl bg-slate-50 p-4"><div className="mb-2 flex items-center gap-2"><h4 className="font-medium">{g.topic}</h4><Badge tone={g.status === "Conflict" ? "red" : g.status === "Missing" ? "amber" : "blue"}>{g.status}</Badge></div><p className="text-sm text-slate-600">{g.question}</p><div className="mt-3 flex flex-wrap gap-2">{g.suggestions.map((s) => <button key={s} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs">{s}</button>)}</div></div>)}
+      </div>
+    </Card>
+  );
+}
+
+function VisualGenInline() {
+  return (
+    <Card className="p-5">
+      <div className="mb-4 flex items-center justify-between"><div><h3 className="font-semibold">Integrated Visual Gen</h3><p className="mt-1 text-sm text-slate-500">Use selected document sections to create editable tables, charts, diagrams, or schematic graphics.</p></div><Badge tone="purple">Auto-suggest: On</Badge></div>
+      <div className="grid grid-cols-4 gap-3">
+        {["Table Gen", "Chart Gen", "Diagram Gen", "Graphics Gen"].map((x, i) => <button key={x} className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-left text-sm hover:bg-white"><Icon name={["table", "chart", "workflow", "image"][i]} className="mb-2" /><div className="font-medium">{x}</div><div className="mt-1 text-xs text-slate-500">{i === 0 ? "Editable structured output" : i === 3 ? "Review-required schematic" : "Structured visual"}</div></button>)}
+      </div>
+      <div className="mt-4 rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-600">Selected section preview: Construction Sequence. Suggested output: editable sequence diagram. Prompt can be edited before generation.</div>
+    </Card>
+  );
+}
+
+function DraftEditor() {
+  const [mode, setMode] = useState("edit");
+  return (
+    <div>
+      <SectionTitle icon="file" title="Draft Editor" subtitle="Main workspace: start a new method statement, select existing drafts, edit content, resolve gaps, and generate visuals." action={<button onClick={() => setMode("new")} className="rounded-xl bg-slate-950 px-4 py-2 text-sm font-medium text-white">Draft New MS</button>} />
+      <div className="mb-5 flex gap-2 rounded-2xl bg-white p-2 shadow-sm">
+        {[["new", "Draft New MS"], ["select", "Select Existing MS"], ["edit", "Edit Current MS"], ["gaps", "Gap & Suggestions"], ["visual", "Visual Gen"]].map(([key, label]) => <button key={key} onClick={() => setMode(key)} className={`rounded-xl px-4 py-2 text-sm ${mode === key ? "bg-slate-950 text-white" : "text-slate-600 hover:bg-slate-100"}`}>{label}</button>)}
+      </div>
+
+      {mode === "new" && <DraftNewWizardInline />}
+      {mode === "select" && <Card className="p-5"><h3 className="mb-4 font-semibold">Select Existing Method Statement</h3><div className="space-y-3">{methodStatements.map((m) => <MethodStatementRow key={m.id} m={m} />)}</div></Card>}
+      {mode === "gaps" && <GapSuggestionsInline />}
+      {mode === "visual" && <VisualGenInline />}
+      {mode === "edit" && <EditorWorkspace />}
+    </div>
+  );
+}
+
+function EditorWorkspace() {
+  return (
+    <div className="grid grid-cols-12 gap-6">
+      <Card className="col-span-3 p-4">
+        <div className="mb-3 flex items-center justify-between"><h3 className="font-semibold">Current MS Sections</h3><Icon name="filter" size={16} className="text-slate-400" /></div>
+        <div className="mb-4 rounded-xl bg-slate-50 p-3 text-sm"><div className="font-medium">Basement Excavation and Strutting Works</div><div className="mt-1 text-xs text-slate-500">P-2307 · ELS / Excavation · Drafting</div></div>
+        <div className="space-y-2">{sections.map((s, i) => <div key={s.name} className={`rounded-xl p-3 text-sm ${i === 5 ? "bg-slate-950 text-white" : "bg-slate-50 text-slate-700"}`}><div className="flex items-center justify-between"><span>{s.name}</span><span className="text-xs">{s.score}</span></div><div className="mt-2 flex items-center gap-2 text-xs opacity-80"><Icon name="link" size={12} /> {s.refs} refs <Icon name="warning" size={12} /> {s.issues} issues</div></div>)}</div>
+      </Card>
+      <Card className="col-span-6 p-6">
+        <div className="mb-4 flex items-center justify-between"><h3 className="text-lg font-semibold">14. Detailed Construction Sequence</h3><Badge tone="amber">Specificity 62/100</Badge></div>
+        <div className="prose prose-sm max-w-none text-slate-700">
+          <p><strong>14.1 Pre-commencement checks.</strong> Prior to commencement of excavation works, the site team shall confirm the approved drawings, temporary works design, excavation permit, monitoring baseline readings, and access arrangement.<sup className="cursor-pointer text-blue-600">1</sup><sup className="cursor-pointer text-green-600">2</sup></p>
+          <p><strong>14.2 Excavation sequence.</strong> Excavation shall be carried out by stages in accordance with the approved excavation sequence. The first stage shall proceed to the confirmed first support level before installation of walers and struts.<sup className="cursor-pointer text-green-600">3</sup> <span className="rounded bg-amber-100 px-1">Gap: exact level to be confirmed</span></p>
+          <p><strong>14.3 Support installation.</strong> Walers and struts shall be installed after survey check and prior to further excavation. Strut preloading requirements shall follow the approved temporary works design.<sup className="cursor-pointer text-green-600">4</sup></p>
+          <p><strong>14.4 Monitoring review.</strong> Monitoring readings shall be reviewed before proceeding to the next excavation stage. <span className="rounded bg-red-100 px-1 text-red-700">Conflict: precedent says weekly, spec says daily</span></p>
+        </div>
+        <div className="mt-6 grid grid-cols-2 gap-3"><button className="rounded-xl border border-slate-200 px-4 py-2 text-sm">Open Gap Suggestions</button><button className="rounded-xl border border-slate-200 px-4 py-2 text-sm">Generate Visual From Selection</button></div>
+      </Card>
+      <Card className="col-span-3 p-4">
+        <h3 className="mb-3 font-semibold">MS Assistant</h3>
+        <div className="space-y-3">
+          <div className="rounded-xl border border-blue-100 bg-blue-50 p-3 text-sm"><div className="font-medium text-blue-800">¹ Pool A: Previous MS</div><div className="mt-1 text-blue-700">ELS Excavation and Strutting MS, p.8</div></div>
+          <div className="rounded-xl border border-green-100 bg-green-50 p-3 text-sm"><div className="font-medium text-green-800">² Pool B: Project Spec</div><div className="mt-1 text-green-700">Specification §7.4 Monitoring</div></div>
+          <div className="rounded-xl bg-slate-50 p-3 text-sm"><div className="font-medium">Quick Actions</div><div className="mt-3 grid gap-2"><button className="rounded-xl bg-white px-3 py-2 text-left text-xs">Fill current gap</button><button className="rounded-xl bg-white px-3 py-2 text-left text-xs">Create sequence diagram</button><button className="rounded-xl bg-white px-3 py-2 text-left text-xs">Create editable table</button><button className="rounded-xl bg-white px-3 py-2 text-left text-xs">Run conflict scan</button></div></div>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+function ConflictView() {
+  return (
+    <div>
+      <SectionTitle icon="compare" title="Conflict Review" subtitle="After editing, run source conflict review before export. Current project documents are compared against selected precedent and the draft text." action={<button className="rounded-xl bg-slate-950 px-4 py-2 text-sm font-medium text-white">Run Conflict Review</button>} />
+      <Card className="overflow-hidden">
+        <table className="w-full text-left text-sm"><thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500"><tr><th className="px-4 py-3">Topic</th><th className="px-4 py-3">Current Requirement</th><th className="px-4 py-3">Precedent A</th><th className="px-4 py-3">Precedent B</th><th className="px-4 py-3">Recommended Action</th><th className="px-4 py-3">Decision</th></tr></thead><tbody className="divide-y divide-slate-100">{conflicts.map((c) => <tr key={c.topic} className="align-top"><td className="px-4 py-4 font-medium text-slate-950">{c.topic}</td><td className="px-4 py-4 text-green-700">{c.current}</td><td className="px-4 py-4 text-slate-600">{c.precedentA}</td><td className="px-4 py-4 text-slate-600">{c.precedentB}</td><td className="px-4 py-4 text-slate-700">{c.recommendation}</td><td className="px-4 py-4"><button className="rounded-xl bg-slate-950 px-3 py-2 text-xs text-white">Resolve</button></td></tr>)}</tbody></table>
+      </Card>
+    </div>
+  );
+}
+
+function ExportReview() {
+  return (
+    <div>
+      <SectionTitle icon="download" title="Export Review" subtitle="Final check of unresolved gaps, conflicts, specificity warnings, traceability, and Word export settings." />
+      <div className="grid grid-cols-3 gap-6"><Card className="p-5"><div className="flex items-center gap-3"><Icon name="warning" className="text-amber-500" /><div><div className="text-sm text-slate-500">Unresolved Gaps</div><div className="text-2xl font-semibold">7</div></div></div></Card><Card className="p-5"><div className="flex items-center gap-3"><Icon name="warning" className="text-red-500" /><div><div className="text-sm text-slate-500">Unresolved Conflicts</div><div className="text-2xl font-semibold">2</div></div></div></Card><Card className="p-5"><div className="flex items-center gap-3"><Icon name="link" className="text-blue-500" /><div><div className="text-sm text-slate-500">Traceability Markers</div><div className="text-2xl font-semibold">68</div></div></div></Card></div>
+      <div className="mt-6 grid grid-cols-2 gap-6"><Card className="p-5"><h3 className="mb-4 font-semibold">Export Options</h3><div className="space-y-3">{["Use company Word template", "Include Appendix A: Previous MS References", "Include Appendix B: Project Document References", "Include unresolved item appendix", "Record responsible reviewer"].map((x, i) => <label key={x} className="flex items-center justify-between rounded-xl bg-slate-50 px-4 py-3 text-sm"><span>{x}</span><input type="checkbox" defaultChecked={i < 3} /></label>)}</div><div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">Export is allowed, but unresolved issues will be recorded in the export record. User acknowledgement required.</div><button className="mt-5 w-full rounded-xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white">Export Editable Word Document</button></Card><Card className="p-5"><h3 className="mb-4 font-semibold">Document Readiness</h3><div className="space-y-3">{sections.slice(0, 6).map((s) => <div key={s.name}><div className="mb-1 flex justify-between text-sm"><span>{s.name}</span><span>{s.score}%</span></div><div className="h-2 rounded-full bg-slate-100"><div className={`h-2 rounded-full ${s.score > 80 ? "bg-emerald-600" : s.score > 65 ? "bg-amber-500" : "bg-red-500"}`} style={{ width: `${s.score}%` }} /></div></div>)}</div><div className="mt-5 rounded-2xl bg-slate-50 p-4"><div className="mb-2 flex items-center gap-2 font-medium"><Icon name="eye" size={16} /> Export Record Preview</div><div className="space-y-1 text-sm text-slate-500"><div>User: Dana Engineer</div><div>Reviewer of record: Marco Construction Manager</div><div>Version: Draft v0.8</div><div>Appendices: A + B included</div></div></div></Card></div>
+    </div>
+  );
+}
+
+function SettingsPanel() {
+  const tradeFolders = [
+    { trade: "ELS / Excavation", folder: "\\CompanyShare\MS-Library\ELS", docs: 1240, owner: "Temporary Works Manager", status: "Synced" },
+    { trade: "Concrete Works", folder: "\\CompanyShare\MS-Library\Concrete", docs: 1680, owner: "Construction Manager", status: "Sync pending" },
+    { trade: "Lifting Operations", folder: "\\CompanyShare\MS-Library\Lifting", docs: 760, owner: "Lifting AP", status: "Synced" },
+    { trade: "Drainage", folder: "SharePoint / Projects / Standard MS / Drainage", docs: 890, owner: "Civil Works Lead", status: "Needs review" },
+  ];
+
+  const settingCards = [
+    { title: "Document Management", icon: "folder", desc: "Manage source libraries, approved MS folders, project upload rules, superseded files, and ingestion status." },
+    { title: "Trade Packs", icon: "layers", desc: "Configure required fields, question banks, standard vocabulary, sequence templates, and trade owners." },
+    { title: "Word Templates", icon: "file", desc: "Upload company templates, map sections, configure headers, footers, captions, and appendix rules." },
+    { title: "Users & Roles", icon: "shield", desc: "Administer project access, reviewer roles, trade pack owners, and cross-project retrieval permissions." },
+    { title: "AI Providers", icon: "sparkles", desc: "Configure drafting model, embedding model, document extraction provider, and image generation provider." },
+    { title: "Governance & Audit", icon: "filecheck", desc: "Review export records, model versions, prompt versions, ingestion logs, and retention settings." },
+  ];
+
+  return (
+    <div>
+      <SectionTitle icon="settings" title="Settings" subtitle="Admin area for document libraries, trade source folders, trade packs, templates, users, AI providers, and governance." action={<button className="rounded-xl bg-slate-950 px-4 py-2 text-sm font-medium text-white">Save Settings</button>} />
+
+      <div className="grid grid-cols-3 gap-5">
+        {settingCards.map((s) => <Card key={s.title} className="p-5"><div className="mb-3 flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-950 text-white"><Icon name={s.icon} size={18} /></div><h3 className="font-semibold text-slate-950">{s.title}</h3><p className="mt-2 text-sm leading-relaxed text-slate-500">{s.desc}</p></Card>)}
+      </div>
+
+      <div className="mt-6 grid grid-cols-12 gap-6">
+        <Card className="col-span-8 p-5">
+          <div className="mb-4 flex items-center justify-between"><div><h3 className="font-semibold">Trade Source Folder Management</h3><p className="mt-1 text-sm text-slate-500">Admins can map source-material folders to specific trades for approved method statements, drawings, diagrams, and standard references.</p></div><button className="rounded-xl border border-slate-200 px-4 py-2 text-sm">Add Folder Mapping</button></div>
+          <div className="overflow-hidden rounded-2xl border border-slate-200">
+            <table className="w-full text-left text-sm">
+              <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500"><tr><th className="px-4 py-3">Trade</th><th className="px-4 py-3">Source Folder</th><th className="px-4 py-3">Docs</th><th className="px-4 py-3">Owner</th><th className="px-4 py-3">Status</th><th className="px-4 py-3">Action</th></tr></thead>
+              <tbody className="divide-y divide-slate-100">{tradeFolders.map((f) => <tr key={f.trade}><td className="px-4 py-4 font-medium text-slate-950">{f.trade}</td><td className="px-4 py-4 text-slate-600">{f.folder}</td><td className="px-4 py-4">{f.docs}</td><td className="px-4 py-4 text-slate-600">{f.owner}</td><td className="px-4 py-4"><Badge tone={f.status === "Synced" ? "green" : f.status === "Sync pending" ? "amber" : "red"}>{f.status}</Badge></td><td className="px-4 py-4"><button className="rounded-xl bg-slate-950 px-3 py-2 text-xs text-white">Manage</button></td></tr>)}</tbody>
+            </table>
+          </div>
+        </Card>
+
+        <Card className="col-span-4 p-5">
+          <h3 className="mb-4 font-semibold">Ingestion Controls</h3>
+          <div className="space-y-3">
+            {["Only approved MS can enter KB", "Exclude superseded documents by default", "Require trade owner review before bulk indexing", "Flag low OCR confidence pages", "Prevent cross-project retrieval unless allowed"].map((x, i) => <label key={x} className="flex items-center justify-between rounded-xl bg-slate-50 px-4 py-3 text-sm"><span>{x}</span><input type="checkbox" defaultChecked={i < 4} /></label>)}
+          </div>
+          <div className="mt-5 rounded-2xl bg-blue-50 p-4 text-sm text-blue-800"><strong>Admin note:</strong> Folder mappings should support network drives, SharePoint, EDMS links, and manual uploads. Each mapped folder should have trade, owner, permission, and indexing policy.</div>
+        </Card>
+      </div>
+
+      <div className="mt-6 grid grid-cols-3 gap-6">
+        <Card className="p-5"><h3 className="mb-3 font-semibold">Trade Pack Governance</h3><div className="space-y-2 text-sm text-slate-600"><div>• Named owner per trade</div><div>• Draft → review → publish workflow</div><div>• Version lock for in-progress MS</div><div>• Golden method statement set</div></div></Card>
+        <Card className="p-5"><h3 className="mb-3 font-semibold">Template Settings</h3><div className="space-y-2 text-sm text-slate-600"><div>• Company Word template upload</div><div>• Section mapping</div><div>• Appendix A/B reference settings</div><div>• AI-assisted footer policy</div></div></Card>
+        <Card className="p-5"><h3 className="mb-3 font-semibold">AI / RAG Settings</h3><div className="space-y-2 text-sm text-slate-600"><div>• Drafting model provider</div><div>• Embedding model provider</div><div>• Multimodal RAG toggle</div><div>• Monthly cost ceiling and alerts</div></div></Card>
+      </div>
+    </div>
+  );
+}
+
+export default function App() {
+  const [active, setActive] = useState("dashboard");
+  const screen = useMemo(() => {
+    switch (active) {
+      case "projects": return <ProjectsPanel />;
+      case "trades": return <TradesPanel />;
+      case "editor": return <DraftEditor />;
+      case "conflict": return <ConflictView />;
+      case "export": return <ExportReview />;
+      case "settings": return <SettingsPanel />;
+      default: return <Dashboard />;
+    }
+  }, [active]);
+
+  return (
+    <div className="flex h-screen bg-slate-100 text-slate-950">
+      <Sidebar active={active} setActive={setActive} />
+      <main className="flex-1 overflow-auto">
+        <div className="sticky top-0 z-10 border-b border-slate-200 bg-white/80 px-8 py-4 backdrop-blur">
+          <div className="flex items-center justify-between">
+            <div><div className="text-xs uppercase tracking-wide text-slate-400">Prototype UI v2</div><div className="text-sm text-slate-600">Workflow adjusted: Projects / Trades / Draft Editor / Conflict Review / Export Review</div></div>
+            <div className="flex items-center gap-3"><button className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"><Icon name="settings" size={16} /></button><div className="rounded-full bg-slate-950 px-4 py-2 text-sm font-medium text-white">Dana Engineer</div></div>
+          </div>
+        </div>
+        <div key={active} className="p-8">{screen}</div>
+      </main>
+    </div>
+  );
+}

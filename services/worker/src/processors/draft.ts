@@ -8,8 +8,8 @@
 
 import type { Job } from "bullmq";
 import { db } from "@ams/database";
-import { draftSection, type SourcePassageForDraft } from "@ams/ai-engine";
-import { AnthropicLLMProvider, buildMethodStatementBrief } from "@ams/ai-engine";
+import { draftSection, type SourcePassageForDraft, createLLMProvider, getLLMConfigFromEnv } from "@ams/ai-engine";
+import { buildMethodStatementBrief } from "@ams/ai-engine";
 import { analyseSpecificity } from "@ams/ai-engine";
 import type { SectionKey } from "@ams/shared";
 import { CostTrackingLLMProvider } from "../lib/cost-tracking";
@@ -18,20 +18,26 @@ interface DraftJobPayload {
   methodStatementId: string;
   sectionKey: string;
   userId: string;
+  workerJobId?: string;
 }
 
 export async function processDraft(job: Job<DraftJobPayload>) {
-  const { methodStatementId, sectionKey, userId } = job.data;
+  const { methodStatementId, sectionKey, userId, workerJobId } = job.data;
 
   await db.workerJob.updateMany({
     where: {
       jobType: "draft.section",
-      payload: {
-        path: ["methodStatementId"],
-        equals: methodStatementId,
-      },
+      ...(workerJobId
+        ? { id: workerJobId }
+        : {
+            payload: {
+              path: ["methodStatementId"],
+              equals: methodStatementId,
+            },
+            AND: [{ payload: { path: ["sectionKey"], equals: sectionKey } }],
+          }),
     },
-    data: { status: "RUNNING", startedAt: new Date() },
+    data: { status: "RUNNING", startedAt: new Date(), completedAt: null, errorMessage: null },
   });
 
   try {
@@ -65,13 +71,13 @@ export async function processDraft(job: Job<DraftJobPayload>) {
     // Pool B: project document passages ordered by authority rank
     const projectPassages = await db.sourcePassage.findMany({
       where: {
-        sourceDocument: {
+        projectDocument: {
           projectId: ms.project.id,
         },
         contentType: { in: ["text", "table"] },
       },
       orderBy: [
-        { sourceDocument: { authorityRank: "asc" } },
+        { projectDocument: { authorityRank: "asc" } },
         { pageNumber: "asc" },
       ],
       take: 80,
@@ -81,8 +87,9 @@ export async function processDraft(job: Job<DraftJobPayload>) {
         contentType: true,
         pageNumber: true,
         sectionHeading: true,
-        sourceDocument: {
-          select: { title: true, authorityRank: true, documentType: true },
+        sourceDocumentId: true,
+        projectDocument: {
+          select: { filename: true, authorityRank: true, documentType: true },
         },
       },
     });
@@ -115,9 +122,10 @@ export async function processDraft(job: Job<DraftJobPayload>) {
         contentType: p.contentType,
         pageNumber: p.pageNumber,
         sectionHeading: p.sectionHeading,
-        sourceRef: `${p.sourceDocument?.title ?? "Project doc"} p.${p.pageNumber ?? "?"}`,
+        sourceDocumentId: p.sourceDocumentId,
+        sourceRef: `${p.projectDocument?.filename ?? "Project doc"} p.${p.pageNumber ?? "?"}`,
         pool: "B" as const,
-        authorityRank: p.sourceDocument?.authorityRank,
+        authorityRank: p.projectDocument?.authorityRank,
       })),
       ...precedentPassages.map((p) => ({
         passageId: p.id,
@@ -155,18 +163,15 @@ export async function processDraft(job: Job<DraftJobPayload>) {
     // Get existing section for potential revision
     const existingSection = await db.methodStatementSection.findFirst({
       where: { methodStatementId, sectionKey },
-      select: { id: true, content: true },
+      select: { id: true, content: true, draftingNotes: true },
     });
 
     // Get standard section definition
     const { STANDARD_SECTIONS } = await import("@ams/shared");
     const sectionDef = STANDARD_SECTIONS.find((s) => s.key === sectionKey);
 
-    const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (!apiKey) throw new Error("ANTHROPIC_API_KEY not configured");
-
     const llm = new CostTrackingLLMProvider(
-      new AnthropicLLMProvider(apiKey),
+      createLLMProvider(getLLMConfigFromEnv()),
       { operation: "drafting", methodStatementId, projectId: ms.project.id }
     );
 
@@ -186,6 +191,7 @@ export async function processDraft(job: Job<DraftJobPayload>) {
           answer: g.answer ?? "",
         })),
         passages,
+        sectionUserInput: existingSection?.draftingNotes,
         previousContent: existingSection?.content ?? undefined,
       },
       llm
@@ -234,9 +240,9 @@ export async function processDraft(job: Job<DraftJobPayload>) {
     });
 
     // Create reference markers for cited passages
-    const existingMarkerCount = await db.referenceMarker.count({
+    let nextMarkerIndex = await db.referenceMarker.count({
       where: { methodStatementId, sectionId: section.id, deletedAt: null },
-    });
+    }) + 1;
 
     for (const passageId of draftResult.citedPassageIds) {
       const passage = passages.find((p) => p.passageId === passageId);
@@ -248,9 +254,10 @@ export async function processDraft(job: Job<DraftJobPayload>) {
           sectionId: section.id,
           pool: passage.pool,
           sourcePassageId: passageId,
+          sourceDocumentId: passage.pool === "B" ? passage.sourceDocumentId ?? null : null,
           sourcePassageExcerpt: passage.content.slice(0, 500),
           sourcePageOrSection: passage.pageNumber ? `p.${passage.pageNumber}` : null,
-          indexNumber: existingMarkerCount + 1,
+          indexNumber: nextMarkerIndex++,
           createdBy: userId,
         },
       });
@@ -261,7 +268,12 @@ export async function processDraft(job: Job<DraftJobPayload>) {
     await db.workerJob.updateMany({
       where: {
         jobType: "draft.section",
-        payload: { path: ["methodStatementId"], equals: methodStatementId },
+        ...(workerJobId
+          ? { id: workerJobId }
+          : {
+              payload: { path: ["methodStatementId"], equals: methodStatementId },
+              AND: [{ payload: { path: ["sectionKey"], equals: sectionKey } }],
+            }),
       },
       data: {
         status: "COMPLETE",
@@ -284,9 +296,22 @@ export async function processDraft(job: Job<DraftJobPayload>) {
     await db.workerJob.updateMany({
       where: {
         jobType: "draft.section",
-        payload: { path: ["methodStatementId"], equals: methodStatementId },
+        ...(workerJobId
+          ? { id: workerJobId }
+          : {
+              payload: { path: ["methodStatementId"], equals: methodStatementId },
+              AND: [{ payload: { path: ["sectionKey"], equals: sectionKey } }],
+            }),
       },
       data: { status: "FAILED", completedAt: new Date(), errorMessage: error.message },
+    });
+    const existingSection = await db.methodStatementSection.findUnique({
+      where: { methodStatementId_sectionKey: { methodStatementId, sectionKey } },
+      select: { content: true },
+    });
+    await db.methodStatementSection.updateMany({
+      where: { methodStatementId, sectionKey, status: "DRAFTING" },
+      data: { status: existingSection?.content?.trim() ? "DRAFT" : "NOT_STARTED" },
     });
     throw error;
   }

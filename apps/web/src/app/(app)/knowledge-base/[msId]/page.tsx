@@ -18,11 +18,17 @@ export async function generateMetadata({
 
 export default async function KBDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ msId: string }>;
+  searchParams: Promise<{ page?: string }>;
 }) {
   // auth guard handled by Clerk middleware and layout
   const { msId } = await params;
+  const sp = await searchParams;
+  const passagePage = Math.max(1, parseInt(sp.page ?? "1", 10) || 1);
+  const passageLimit = 20;
+  const passageSkip = (passagePage - 1) * passageLimit;
 
   const ms = await db.historicalMethodStatement.findUnique({
     where: { id: msId },
@@ -38,7 +44,8 @@ export default async function KBDetailPage({
   const passages = await db.sourcePassage.findMany({
     where: { historicalMSId: msId, contentType: { in: ["text", "table"] } },
     orderBy: { pageNumber: "asc" },
-    take: 20,
+    skip: passageSkip,
+    take: passageLimit,
     select: {
       id: true,
       pageNumber: true,
@@ -47,6 +54,10 @@ export default async function KBDetailPage({
       contentType: true,
     },
   });
+  const passageCount = ms._count.sourcePassages;
+  const passagePageCount = Math.max(1, Math.ceil(passageCount / passageLimit));
+  const firstShown = passageCount === 0 ? 0 : passageSkip + 1;
+  const lastShown = passageSkip + passages.length;
 
   const STATUS_COLOR: Record<string, string> = {
     COMPLETE:    "bg-green-50 text-green-700",
@@ -131,7 +142,7 @@ export default async function KBDetailPage({
         <div className="px-5 py-4 border-b border-gray-100">
           <h2 className="text-sm font-semibold text-gray-900">Content Passages</h2>
           <p className="text-xs text-gray-400 mt-0.5">
-            First 20 of {ms._count.sourcePassages} passages
+            Showing {firstShown}-{lastShown} of {passageCount} passages
           </p>
         </div>
         {passages.length === 0 ? (
@@ -162,6 +173,31 @@ export default async function KBDetailPage({
                 </div>
               </div>
             ))}
+          </div>
+        )}
+        {passagePageCount > 1 && (
+          <div className="flex items-center justify-between border-t border-gray-100 px-5 py-3 text-sm text-gray-500">
+            <span>
+              Page {passagePage} of {passagePageCount}
+            </span>
+            <div className="flex gap-2">
+              {passagePage > 1 && (
+                <Link
+                  href={`/knowledge-base/${ms.id}?page=${passagePage - 1}`}
+                  className="rounded-lg border border-gray-200 px-3 py-1.5 hover:bg-gray-50"
+                >
+                  Previous
+                </Link>
+              )}
+              {passagePage < passagePageCount && (
+                <Link
+                  href={`/knowledge-base/${ms.id}?page=${passagePage + 1}`}
+                  className="rounded-lg border border-gray-200 px-3 py-1.5 hover:bg-gray-50"
+                >
+                  Next
+                </Link>
+              )}
+            </div>
           </div>
         )}
       </div>

@@ -25,9 +25,9 @@ export async function GET(
       contentType: true,
       pageNumber: true,
       sectionHeading: true,
-      sourceDocument: {
+      projectDocument: {
         select: {
-          title: true,
+          filename: true,
           documentType: true,
           authorityRank: true,
           project: {
@@ -53,7 +53,7 @@ export async function GET(
   if (!passage) return NextResponse.json({ error: "Not found." }, { status: 404 });
 
   // Access check: project member, or open historical MS
-  const isMember = passage.sourceDocument?.project?.members?.length ?? 0 > 0;
+  const isMember = passage.projectDocument?.project?.members?.length ?? 0 > 0;
   const isPublicHistorical =
     passage.historicalMethodStatement?.approvalStatus === "COMPLETE";
 
@@ -67,13 +67,13 @@ export async function GET(
     contentType: passage.contentType,
     pageNumber: passage.pageNumber,
     sectionHeading: passage.sectionHeading,
-    source: passage.sourceDocument
+    source: passage.projectDocument
       ? {
           type: "project",
-          title: passage.sourceDocument.title,
-          documentType: passage.sourceDocument.documentType,
-          authorityRank: passage.sourceDocument.authorityRank,
-          projectName: passage.sourceDocument.project?.name,
+          title: passage.projectDocument.filename,
+          documentType: passage.projectDocument.documentType,
+          authorityRank: passage.projectDocument.authorityRank,
+          projectName: passage.projectDocument.project?.name,
         }
       : {
           type: "historical",

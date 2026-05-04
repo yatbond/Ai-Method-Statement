@@ -7,8 +7,7 @@
 
 import type { Job } from "bullmq";
 import { db } from "@ams/database";
-import { detectConflicts, type ConflictPassage } from "@ams/ai-engine";
-import { AnthropicLLMProvider } from "@ams/ai-engine";
+import { detectConflicts, type ConflictPassage, createLLMProvider, getLLMConfigFromEnv } from "@ams/ai-engine";
 import { CostTrackingLLMProvider } from "../lib/cost-tracking";
 
 export async function processConflictDetection(
@@ -39,17 +38,17 @@ export async function processConflictDetection(
     // Pool A: project document passages
     const projectPassages = await db.sourcePassage.findMany({
       where: {
-        sourceDocument: { projectId: ms.project.id },
+        projectDocument: { projectId: ms.project.id },
         contentType: { in: ["text", "table"] },
       },
-      orderBy: [{ sourceDocument: { authorityRank: "asc" } }, { pageNumber: "asc" }],
+      orderBy: [{ projectDocument: { authorityRank: "asc" } }, { pageNumber: "asc" }],
       take: 60,
       select: {
         id: true,
         extractedText: true,
         contentType: true,
         pageNumber: true,
-        sourceDocument: { select: { title: true, authorityRank: true, documentType: true } },
+        projectDocument: { select: { filename: true, authorityRank: true, documentType: true } },
       },
     });
 
@@ -79,8 +78,8 @@ export async function processConflictDetection(
       passageId: p.id,
       content: p.extractedText,
       contentType: p.contentType,
-      sourceRef: `DOC-${i + 1} (${p.sourceDocument?.title ?? "Project doc"}, p.${p.pageNumber ?? "?"})`,
-      authorityRank: p.sourceDocument?.authorityRank,
+      sourceRef: `DOC-${i + 1} (${p.projectDocument?.filename ?? "Project doc"}, p.${p.pageNumber ?? "?"})`,
+      authorityRank: p.projectDocument?.authorityRank,
     }));
 
     const poolB: ConflictPassage[] = retrievalResults.flatMap((r) =>
@@ -93,11 +92,8 @@ export async function processConflictDetection(
       }))
     );
 
-    const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (!apiKey) throw new Error("ANTHROPIC_API_KEY not configured");
-
     const llm = new CostTrackingLLMProvider(
-      new AnthropicLLMProvider(apiKey),
+      createLLMProvider(getLLMConfigFromEnv()),
       { operation: "conflict-detection", methodStatementId, projectId: ms.project.id }
     );
 

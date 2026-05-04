@@ -104,7 +104,7 @@ export async function POST(req: Request) {
       title: title.trim(),
       projectName: projectName?.trim() || null,
       client: client?.trim() || null,
-      approvalStatus: approvalStatus as DocumentStatus,
+      approvalStatus: DocumentStatus.QUEUED,
       fileKey,
       fileSize: file.size,
     },
@@ -113,7 +113,7 @@ export async function POST(req: Request) {
   // Create a corresponding ProjectDocument-like record so the ingestion
   // pipeline can process it via the standard path
   // We store it as a special document that feeds into SourcePassage with historicalMSId
-  await db.workerJob.create({
+  const workerJob = await db.workerJob.create({
     data: {
       jobType: "historical-ms.ingest",
       payload: {
@@ -129,12 +129,24 @@ export async function POST(req: Request) {
   await ingestionQueue.add(
     "historical-ms.ingest",
     {
+      workerJobId: workerJob.id,
       historicalMSId: ms.id,
       fileKey,
       mimeType: file.type,
     },
-    { attempts: 3, backoff: { type: "exponential", delay: 2000 } }
+    { jobId: workerJob.id, attempts: 3, backoff: { type: "exponential", delay: 2000 } }
   );
+
+  await db.workerJob.update({
+    where: { id: workerJob.id },
+    data: {
+      payload: {
+        ...(workerJob.payload as Record<string, any>),
+        workerJobId: workerJob.id,
+        bullmqJobId: workerJob.id,
+      },
+    },
+  });
 
   await audit({
     userId,

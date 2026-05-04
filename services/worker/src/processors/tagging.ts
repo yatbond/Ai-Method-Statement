@@ -7,8 +7,8 @@
 
 import type { Job } from "bullmq";
 import { db } from "@ams/database";
-import { tagDocument } from "@ams/ai-engine/src/document-ai/metadata-tagger";
-import { createLLMProvider } from "@ams/ai-engine";
+import { tagDocument } from "@ams/ai-engine";
+import { createLLMProvider, getLLMConfigFromEnv } from "@ams/ai-engine";
 
 export async function processTagging(
   job: Job<{ documentId: string; passageIds: string[] }>
@@ -20,11 +20,7 @@ export async function processTagging(
     select: { extractedText: true, contentType: true, pageNumber: true, sectionHeading: true },
   });
 
-  const llm = createLLMProvider({
-    provider: (process.env.LLM_PROVIDER as "anthropic" | "openai") ?? "anthropic",
-    apiKey: process.env.ANTHROPIC_API_KEY ?? process.env.OPENAI_API_KEY ?? "",
-    model: process.env.LLM_MODEL,
-  });
+  const llm = createLLMProvider(getLLMConfigFromEnv());
 
   const chunks = passages.map((p) => ({
     type: "text" as const,

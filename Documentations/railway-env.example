@@ -1,0 +1,64 @@
+# Railway Environment Template
+#
+# Set these on both Railway services unless marked "web only".
+# Railway will provide DATABASE_URL and REDIS_URL when you attach Postgres/Redis.
+
+NODE_ENV=production
+NEXT_TELEMETRY_DISABLED=1
+
+# Railway data services
+DATABASE_URL=<Railway Postgres DATABASE_URL>
+REDIS_URL=<Railway Redis REDIS_URL>
+
+# Public app URL
+NEXT_PUBLIC_APP_URL=https://<your-railway-web-domain>
+APP_URL=https://<your-railway-web-domain>
+
+# Clerk auth
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=<web only>
+CLERK_SECRET_KEY=<web only>
+CLERK_WEBHOOK_SECRET=<web only, if enabled>
+NEXT_PUBLIC_CLERK_SIGN_IN_URL=/login
+NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL=/dashboard
+NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL=/dashboard
+DEFAULT_ORGANISATION_ID=default
+
+# Cloudflare R2 storage
+STORAGE_PROVIDER=s3
+AWS_REGION=auto
+AWS_S3_BUCKET=<your-r2-bucket-name>
+AWS_ACCESS_KEY_ID=<r2-access-key-id>
+AWS_SECRET_ACCESS_KEY=<r2-secret-access-key>
+S3_ENDPOINT=https://<cloudflare-account-id>.r2.cloudflarestorage.com
+S3_FORCE_PATH_STYLE=false
+
+# Required embeddings
+GOOGLE_AI_API_KEY=<google-ai-key>
+GEMINI_EMBEDDING_MODEL=text-embedding-004
+
+# Drafting LLM
+LLM_PROVIDER=ollama
+OLLAMA_API_KEY=<ollama-cloud-key>
+OLLAMA_MODEL=kimi-k2.6:cloud
+OLLAMA_BASE_URL=https://ollama.com/v1
+
+# Document AI OCR
+DOCUMENT_AI_PROVIDER=zai
+DOCUMENT_AI_API_KEY=<z-ai-key>
+DOCUMENT_AI_MODEL=glm-ocr
+DOCUMENT_AI_BASE_URL=https://api.z.ai/api/paas/v4
+
+# Ingestion tuning
+INGESTION_CONCURRENCY=2
+DOCUMENT_AI_BATCH_PAGES=10
+DOCUMENT_AI_REQUEST_DELAY_MS=120000
+ZAI_OCR_RATE_LIMIT_COOLDOWN_MS=900000
+HISTORICAL_MS_INGEST_ATTEMPTS=3
+HISTORICAL_MS_INGEST_RETRY_DELAY_SECONDS=600
+
+# Runtime .env editing should stay disabled in hosted production.
+AMS_ALLOW_RUNTIME_ENV_WRITE=false
+
+# Health check
+# Configure Railway web service health-check path as:
+# /api/health

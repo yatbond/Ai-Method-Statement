@@ -13,7 +13,8 @@ interface S3Config {
   region: string;
   accessKeyId?: string;
   secretAccessKey?: string;
-  endpoint?: string; // for MinIO
+  endpoint?: string;
+  forcePathStyle?: boolean;
 }
 
 export class S3StorageProvider implements StorageProvider {
@@ -32,7 +33,7 @@ export class S3StorageProvider implements StorageProvider {
       }),
       ...(config.endpoint && {
         endpoint: config.endpoint,
-        forcePathStyle: true, // required for MinIO
+        forcePathStyle: config.forcePathStyle,
       }),
     });
   }

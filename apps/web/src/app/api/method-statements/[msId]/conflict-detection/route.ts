@@ -76,7 +76,7 @@ export async function GET(
         jobType: "conflict.detect",
         payload: { path: ["methodStatementId"], equals: msId },
       },
-      orderBy: { createdAt: "desc" },
+      orderBy: { scheduledAt: "desc" },
       select: { status: true, completedAt: true, errorMessage: true },
     }),
   ]);

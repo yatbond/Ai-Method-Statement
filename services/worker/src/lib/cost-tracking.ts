@@ -50,7 +50,6 @@ export class CostTrackingLLMProvider implements LLMProvider {
         data: {
           provider: record.provider,
           operation: record.operation,
-          model: record.model,
           inputTokens: record.inputTokens,
           outputTokens: record.outputTokens,
           estimatedCostGbp: record.estimatedCostGbp,

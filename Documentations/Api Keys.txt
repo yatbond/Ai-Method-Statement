@@ -1,0 +1,74 @@
+API Keys And Secret Inventory
+Updated: 2026-05-04
+
+Do not store live API keys in this file or commit them to GitHub.
+Use this document only as a checklist for which secrets must exist in local `.env`
+or in Railway service variables.
+
+Local development:
+- Put secrets in `/home/yatbond/projects/Ai-Method-Statement/.env`.
+- Keep `.env` out of git.
+- The Settings page can edit `.env` in local development.
+
+Hosted Railway deployment:
+- Put secrets in Railway service variables for `ams-web` and `ams-worker`.
+- Runtime `.env` editing is disabled in production by default.
+- Keep `AMS_ALLOW_RUNTIME_ENV_WRITE=false` unless you intentionally want to allow
+  hosted runtime env mutation.
+
+Required services and variables:
+
+1. Clerk authentication
+- `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`
+- `CLERK_SECRET_KEY`
+- `CLERK_WEBHOOK_SECRET` if Clerk webhooks are enabled
+
+2. Railway data services
+- `DATABASE_URL`
+- `REDIS_URL`
+
+3. Cloudflare R2 object storage
+- `STORAGE_PROVIDER=s3`
+- `AWS_REGION=auto`
+- `AWS_S3_BUCKET`
+- `AWS_ACCESS_KEY_ID` or `CLOUDFLARE_R2_ACCESS_KEY_ID`
+- `AWS_SECRET_ACCESS_KEY` or `CLOUDFLARE_R2_SECRET_ACCESS_KEY`
+- `S3_ENDPOINT=https://<cloudflare-account-id>.r2.cloudflarestorage.com`
+  or `CLOUDFLARE_R2_ACCOUNT_ID`
+- `S3_FORCE_PATH_STYLE=false`
+
+4. Required Gemini embeddings
+- `GOOGLE_AI_API_KEY` or `GOOGLE_API_KEY`
+- `GEMINI_EMBEDDING_MODEL=text-embedding-004`
+
+5. Drafting LLM
+- `LLM_PROVIDER`
+- Provider key, for example `OLLAMA_API_KEY`, `ANTHROPIC_API_KEY`, or
+  `OPENAI_API_KEY`
+- Provider model, for example `OLLAMA_MODEL`
+- Provider base URL where required, for example `OLLAMA_BASE_URL`
+
+6. Document AI OCR
+- `DOCUMENT_AI_PROVIDER`
+- `DOCUMENT_AI_API_KEY` when using Z.ai, Gemini, or OpenRouter
+- `DOCUMENT_AI_MODEL`
+- `DOCUMENT_AI_BASE_URL` when using Z.ai, Ollama, or OpenRouter in hosted mode
+
+Recommended current hosted defaults:
+- `LLM_PROVIDER=ollama`
+- `OLLAMA_MODEL=kimi-k2.6:cloud`
+- `OLLAMA_BASE_URL=https://ollama.com/v1`
+- `DOCUMENT_AI_PROVIDER=zai`
+- `DOCUMENT_AI_MODEL=glm-ocr`
+- `DOCUMENT_AI_BASE_URL=https://api.z.ai/api/paas/v4`
+- `INGESTION_CONCURRENCY=2`
+- `DOCUMENT_AI_BATCH_PAGES=10`
+- `DOCUMENT_AI_REQUEST_DELAY_MS=120000`
+- `ZAI_OCR_RATE_LIMIT_COOLDOWN_MS=900000`
+- `HISTORICAL_MS_INGEST_ATTEMPTS=3`
+- `HISTORICAL_MS_INGEST_RETRY_DELAY_SECONDS=600`
+
+Validation:
+- Web health check: `/api/health`
+- Storage check: Settings -> File Storage -> Test Storage
+- Env status: Settings -> Environment configuration

@@ -6,7 +6,7 @@
 // Retention: ≥ 7 years.
 // =============================================================================
 
-import { db } from "@ams/database";
+import { Prisma, db } from "@ams/database";
 
 export interface AuditEvent {
   userId?: string;
@@ -14,7 +14,7 @@ export interface AuditEvent {
   action: string;
   resourceType?: string;
   resourceId?: string;
-  metadata?: Record<string, unknown>;
+  metadata?: Prisma.InputJsonValue;
   ipAddress?: string;
   userAgent?: string;
 }
