@@ -1,2 +1,2 @@
 ALTER TABLE "MethodStatementSection"
-ADD COLUMN "draftingNotes" TEXT;
+ADD COLUMN IF NOT EXISTS "draftingNotes" TEXT;
