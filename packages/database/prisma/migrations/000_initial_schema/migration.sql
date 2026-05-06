@@ -196,7 +196,7 @@ CREATE TABLE "SourcePassage" (
     "contentType" TEXT NOT NULL DEFAULT 'text',
     "imageStorageKey" TEXT,
     "embeddingModelVersion" TEXT NOT NULL,
-    "embedding" vector(3072),
+    "embedding" vector(768),
     "lastVerifiedAt" TIMESTAMP(3),
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
@@ -706,4 +706,3 @@ ALTER TABLE "AuditLog" ADD CONSTRAINT "AuditLog_userId_fkey" FOREIGN KEY ("userI
 
 -- AddForeignKey
 ALTER TABLE "AuditLog" ADD CONSTRAINT "AuditLog_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "Project"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-

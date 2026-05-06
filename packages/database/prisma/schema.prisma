@@ -334,7 +334,7 @@ model SourcePassage {
   contentType                 String  @default("text") // text | table | image | diagram
   imageStorageKey             String? // for image/diagram passages
   embeddingModelVersion       String  // e.g. "text-embedding-004"
-  embedding                   Unsupported("vector(3072)")?
+  embedding                   Unsupported("vector(768)")?
   lastVerifiedAt              DateTime?
   createdAt                   DateTime @default(now())
 
