@@ -44,6 +44,11 @@ export class GeminiEmbeddingProvider implements EmbeddingProvider {
 
     const result = await model.embedContent(content);
     const embedding = result.embedding.values;
+    if (embedding.length !== EMBEDDING_DIMENSIONS) {
+      throw new Error(
+        `Embedding dimension mismatch for ${this.modelVersion}: expected ${EMBEDDING_DIMENSIONS}, received ${embedding.length}.`
+      );
+    }
 
     return {
       embedding,

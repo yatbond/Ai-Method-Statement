@@ -217,7 +217,7 @@ export default async function SettingsPage() {
         <div className="bg-white rounded-xl border border-gray-200 divide-y divide-gray-100">
           {[
             ["LLM provider", `${llmProvider} (${llmModel})`],
-            ["Embedding model", "Google Gemini Embedding 2 (text-embedding-004, 3072 dims)"],
+            ["Embedding model", "Google Gemini Embedding 2 (text-embedding-004, 768 dims)"],
             ["Vector store", "PostgreSQL + pgvector (HNSW, cosine)"],
             ["Retrieval strategy", "Reciprocal Rank Fusion (RRF k=60, cosine + FTS)"],
             ["Document AI", "Google Document AI"],
