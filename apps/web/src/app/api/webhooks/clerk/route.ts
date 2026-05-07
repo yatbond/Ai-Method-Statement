@@ -1,6 +1,7 @@
 import { Webhook } from "svix";
 import { headers } from "next/headers";
 import { db } from "@ams/database";
+import { ensureDefaultOrganisation } from "@/lib/organisation";
 
 export async function POST(req: Request) {
   const WEBHOOK_SECRET = process.env.CLERK_WEBHOOK_SECRET;
@@ -36,6 +37,7 @@ export async function POST(req: Request) {
     const { id: clerkUserId, email_addresses, first_name, last_name } = evt.data;
     const email: string = email_addresses?.[0]?.email_address ?? "";
     const name = `${first_name ?? ""} ${last_name ?? ""}`.trim() || email;
+    const organisationId = await ensureDefaultOrganisation();
 
     await db.user.upsert({
       where: { clerkUserId },
@@ -44,7 +46,7 @@ export async function POST(req: Request) {
         clerkUserId,
         email,
         name,
-        organisationId: process.env.DEFAULT_ORGANISATION_ID ?? "default",
+        organisationId,
         lastLoginAt: new Date(),
       },
     });
