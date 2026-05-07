@@ -57,6 +57,9 @@ function parseEnvValue(rawValue: string) {
 
 const nextConfig: NextConfig = {
   serverExternalPackages: ["@prisma/client", "bullmq", "ioredis"],
+  experimental: {
+    middlewareClientMaxBodySize: "220mb",
+  },
   images: {
     remotePatterns: [],
   },
