@@ -18,6 +18,7 @@ export interface StorageProvider {
   delete(key: string): Promise<void>;
   exists(key: string): Promise<boolean>;
   presignedUrl(key: string, expiresInSeconds?: number): Promise<string>;
+  presignedUploadUrl?(key: string, contentType: string, expiresInSeconds?: number): Promise<string>;
 }
 
 export { LocalStorageProvider } from "./local-provider";

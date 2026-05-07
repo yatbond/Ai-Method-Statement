@@ -41,4 +41,12 @@ export class LocalStorageProvider implements StorageProvider {
     // Local: return a file:// path — in a real app this would be a signed URL
     return `file://${this.resolve(key)}`;
   }
+
+  async presignedUploadUrl(
+    key: string,
+    contentType: string,
+    expiresInSeconds = 900
+  ): Promise<string> {
+    throw new Error("Direct browser uploads are available only with S3-compatible storage.");
+  }
 }
