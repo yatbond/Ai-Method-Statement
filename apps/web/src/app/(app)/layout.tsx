@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { auth } from "@clerk/nextjs/server";
 import { getAuthUser } from "@/lib/auth";
+import { ensureDefaultOrganisation } from "@/lib/organisation";
 import Sidebar from "@/components/layout/sidebar";
 import Header from "@/components/layout/header";
 
@@ -21,7 +22,7 @@ export default async function AppLayout({
     if (clerkUser) {
       const email = clerkUser.emailAddresses?.[0]?.emailAddress ?? "";
       const name = `${clerkUser.firstName ?? ""} ${clerkUser.lastName ?? ""}`.trim();
-      const orgId = process.env.DEFAULT_ORGANISATION_ID ?? "default";
+      const orgId = await ensureDefaultOrganisation();
       const upserted = await db.user.upsert({
         where: { clerkUserId: userId },
         create: {

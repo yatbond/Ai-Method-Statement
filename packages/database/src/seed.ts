@@ -113,6 +113,17 @@ const VOCABULARY_TERMS = [
 async function seed() {
   console.log("Seeding database...");
 
+  const organisationId = process.env.DEFAULT_ORGANISATION_ID ?? "default";
+  await db.organisation.upsert({
+    where: { id: organisationId },
+    update: {},
+    create: {
+      id: organisationId,
+      name: process.env.DEFAULT_ORGANISATION_NAME ?? "Default Organisation",
+    },
+  });
+  console.log(`✓ Seeded organisation ${organisationId}`);
+
   // Seed trades
   for (const tradeName of TRADES) {
     await db.trade.upsert({

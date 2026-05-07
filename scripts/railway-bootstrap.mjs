@@ -1,9 +1,44 @@
 #!/usr/bin/env node
 import { spawnSync } from "node:child_process";
+import { existsSync, readFileSync } from "node:fs";
 import { createInterface } from "node:readline";
 import { Writable } from "node:stream";
 
-const args = new Set(process.argv.slice(2));
+const rawArgs = process.argv.slice(2).filter((arg) => arg !== "--");
+
+function getArgValue(name) {
+  const prefixed = rawArgs.find((arg) => arg.startsWith(`${name}=`));
+  if (prefixed) return prefixed.slice(name.length + 1);
+  const index = rawArgs.indexOf(name);
+  return index >= 0 ? rawArgs[index + 1] : undefined;
+}
+
+function loadEnvFile(filePath) {
+  if (!filePath || !existsSync(filePath)) return false;
+  const content = readFileSync(filePath, "utf8").replace(/^\uFEFF/, "");
+  for (const rawLine of content.split(/\r?\n/)) {
+    const line = rawLine.trim();
+    if (!line || line.startsWith("#")) continue;
+    const match = /^(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)=(.*)$/.exec(line);
+    if (!match) continue;
+    const [, key, rawValue] = match;
+    let value = rawValue.trim();
+    if (
+      (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
+      value = value.slice(1, -1);
+    }
+    if (process.env[key] === undefined) process.env[key] = value;
+  }
+  return true;
+}
+
+const explicitEnvFile = getArgValue("--env-file");
+const loadedEnvFile = loadEnvFile(explicitEnvFile) || (!explicitEnvFile && loadEnvFile(".env.railway"));
+const args = new Set(
+  rawArgs.filter((arg) => arg !== "--env-file" && !arg.startsWith("--env-file=") && arg !== explicitEnvFile),
+);
 const apply = args.has("--apply");
 const nonInteractive = args.has("--non-interactive");
 const skipDeploy = args.has("--skip-deploy");
@@ -38,6 +73,7 @@ Usage:
 Options:
   --apply                    Apply variables through Railway CLI
   --non-interactive          Read values from environment variables only
+  --env-file <path>          Load variables from a .env-style file first
   --reset-failed-migration   Drop _prisma_migrations first (fresh DB recovery only)
   --skip-migrate             Do not run pnpm railway:migrate through Railway CLI
   --skip-deploy              Do not redeploy web/worker services
@@ -47,6 +83,8 @@ Required local tool for --apply:
 
 Secret prompts are hidden locally. Secret values are sent to Railway over stdin,
 not as command-line arguments.
+
+If .env.railway exists in the current directory, it is loaded automatically.
 `);
 }
 
@@ -250,6 +288,7 @@ function redeploy(service) {
 }
 
 async function main() {
+  if (loadedEnvFile) console.log(`Loaded environment values from ${explicitEnvFile || ".env.railway"}.`);
   const config = await collectConfig();
   printPlan(config);
 
