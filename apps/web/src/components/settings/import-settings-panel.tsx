@@ -70,6 +70,20 @@ type IngestionSettings = {
   parallelRestartRequired: boolean;
 };
 
+type UploadImportResult = {
+  results?: Array<{
+    tradeId: string;
+    file: string;
+    status: "queued" | "skipped" | "failed";
+    message?: string;
+  }>;
+  queued?: number;
+  skipped?: number;
+  failed?: number;
+  message?: string;
+  error?: string;
+};
+
 export default function ImportSettingsPanel() {
   const [trades, setTrades] = useState<Trade[]>([]);
   const [sources, setSources] = useState<Source[]>([]);
@@ -254,19 +268,32 @@ export default function ImportSettingsPanel() {
     setBusy(`upload-${tradeId}`);
     setMessage("");
     try {
-      const formData = new FormData();
-      formData.append("tradeId", tradeId);
-      for (const file of files) formData.append("files", file);
+      const totals = { queued: 0, skipped: 0, failed: 0 };
 
-      const res = await fetch("/api/settings/import/ingest", {
-        method: "POST",
-        body: formData,
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Failed to upload and queue ingestion.");
+      for (let index = 0; index < files.length; index += 1) {
+        const file = files[index];
+        setMessage(`Uploading ${index + 1} of ${files.length}: ${file.name}`);
+
+        const formData = new FormData();
+        formData.append("tradeId", tradeId);
+        formData.append("files", file);
+
+        const res = await fetch("/api/settings/import/ingest", {
+          method: "POST",
+          body: formData,
+        });
+        const data = (await res.json().catch(() => ({}))) as UploadImportResult;
+        if (!res.ok) {
+          throw new Error(data.error ?? `Failed to upload and queue ${file.name}.`);
+        }
+
+        totals.queued += data.queued ?? 0;
+        totals.skipped += data.skipped ?? 0;
+        totals.failed += data.failed ?? 0;
+      }
 
       setUploadFilesByTrade((current) => ({ ...current, [tradeId]: [] }));
-      setMessage(data.message ?? `Queued ${data.queued}; skipped ${data.skipped}; failed ${data.failed}.`);
+      setMessage(`Queued ${totals.queued}; skipped ${totals.skipped}; failed ${totals.failed}.`);
       await load();
     } catch (error: any) {
       setMessage(error.message);
