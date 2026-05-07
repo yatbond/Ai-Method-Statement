@@ -18,6 +18,7 @@
     "railway:worker:build": "pnpm --filter @ams/database db:generate",
     "railway:worker:start": "pnpm --filter @ams/worker start:railway",
     "railway:migrate": "pnpm --filter @ams/database db:migrate:prod",
+    "railway:bootstrap": "node scripts/railway-bootstrap.mjs",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
     "clean": "turbo run clean && rm -rf node_modules"
   },
