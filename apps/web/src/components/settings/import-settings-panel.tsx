@@ -84,6 +84,13 @@ type UploadImportResult = {
   error?: string;
 };
 
+type PresignedUploadResult = {
+  uploadUrl?: string;
+  fileKey?: string;
+  contentType?: string;
+  error?: string;
+};
+
 export default function ImportSettingsPanel() {
   const [trades, setTrades] = useState<Trade[]>([]);
   const [sources, setSources] = useState<Source[]>([]);
@@ -269,18 +276,54 @@ export default function ImportSettingsPanel() {
     setMessage("");
     try {
       const totals = { queued: 0, skipped: 0, failed: 0 };
+      const importRunId = crypto.randomUUID();
+      const importRunStartedAt = new Date().toISOString();
 
       for (let index = 0; index < files.length; index += 1) {
         const file = files[index];
-        setMessage(`Uploading ${index + 1} of ${files.length}: ${file.name}`);
+        const contentType = file.type || "application/pdf";
+        setMessage(`Preparing ${index + 1} of ${files.length}: ${file.name}`);
 
-        const formData = new FormData();
-        formData.append("tradeId", tradeId);
-        formData.append("files", file);
-
-        const res = await fetch("/api/settings/import/ingest", {
+        const sourceFingerprint = await sha256Hex(file);
+        const presignRes = await fetch("/api/settings/import/uploads/presign", {
           method: "POST",
-          body: formData,
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            tradeId,
+            filename: file.name,
+            contentType,
+            size: file.size,
+          }),
+        });
+        const presign = (await presignRes.json().catch(() => ({}))) as PresignedUploadResult;
+        if (!presignRes.ok || !presign.uploadUrl || !presign.fileKey) {
+          throw new Error(presign.error ?? `Failed to prepare upload for ${file.name}.`);
+        }
+
+        setMessage(`Uploading ${index + 1} of ${files.length} to storage: ${file.name}`);
+        const uploadRes = await fetch(presign.uploadUrl, {
+          method: "PUT",
+          headers: { "Content-Type": presign.contentType ?? contentType },
+          body: file,
+        });
+        if (!uploadRes.ok) {
+          throw new Error(`Storage upload failed for ${file.name} (${uploadRes.status}).`);
+        }
+
+        setMessage(`Queueing ${index + 1} of ${files.length}: ${file.name}`);
+        const res = await fetch("/api/settings/import/uploads/complete", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            tradeId,
+            filename: file.name,
+            contentType,
+            size: file.size,
+            fileKey: presign.fileKey,
+            sourceFingerprint,
+            importRunId,
+            importRunStartedAt,
+          }),
         });
         const data = (await res.json().catch(() => ({}))) as UploadImportResult;
         if (!res.ok) {
@@ -842,6 +885,13 @@ export default function ImportSettingsPanel() {
       </div>
     </section>
   );
+}
+
+async function sha256Hex(file: File) {
+  const digest = await crypto.subtle.digest("SHA-256", await file.arrayBuffer());
+  return Array.from(new Uint8Array(digest))
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
 }
 
 function terminalStatus(status: string) {
