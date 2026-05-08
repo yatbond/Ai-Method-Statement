@@ -12,5 +12,5 @@ test("Gemini Embedding 2 migration widens pgvector storage to 3072 dimensions", 
 
   assert.match(sql, /DROP INDEX IF EXISTS source_passage_embedding_idx/i);
   assert.match(sql, /ALTER COLUMN "embedding" TYPE vector\(3072\)/i);
-  assert.match(sql, /CREATE INDEX IF NOT EXISTS source_passage_embedding_idx/i);
+  assert.doesNotMatch(sql, /USING hnsw/i);
 });

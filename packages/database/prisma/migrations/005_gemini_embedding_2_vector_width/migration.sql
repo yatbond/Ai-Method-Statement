@@ -16,7 +16,8 @@ ALTER TABLE "SourcePassage"
 ALTER COLUMN "embedding" TYPE vector(3072)
 USING NULL::vector(3072);
 
-CREATE INDEX IF NOT EXISTS source_passage_embedding_idx
-ON "SourcePassage"
-USING hnsw (embedding vector_cosine_ops)
-WHERE embedding IS NOT NULL;
+-- pgvector HNSW indexes support up to 2000 dimensions for vector columns.
+-- Gemini Embedding 2 returns 3072 dimensions, so exact cosine search remains
+-- available through pgvector operators, but ANN indexing needs a later
+-- halfvec/expression-index design once extension support is confirmed in
+-- Railway Postgres.
