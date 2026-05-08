@@ -28,7 +28,7 @@ services/
 | Database | PostgreSQL 16 + pgvector | Prisma ORM, vector extension |
 | Vector store | pgvector (initial) | Abstracted; pluggable to managed service |
 | File storage | S3-compatible (AWS/MinIO) | Per-project access control, versioned |
-| Embedding | Google Gemini Embedding 2 (`text-embedding-004`) | **Required** — multimodal, not substitutable |
+| Embedding | Google Gemini Embedding 2 (`gemini-embedding-2`) | **Required** — multimodal, not substitutable |
 | LLM | Provider-agnostic abstraction | Anthropic Codex default; swappable via eval harness |
 | Document AI | Pluggable provider | Google Document AI default |
 | Workers | BullMQ + Redis | Idempotent jobs, visible status |
@@ -88,7 +88,7 @@ pnpm dev
 
 ## Critical constraints
 
-- The embedding model **MUST** be Google Gemini Embedding 2 (`text-embedding-004`). Text-only models (OpenAI, Cohere) are explicitly prohibited by REQ-RAG-002 — they cannot embed diagrams and tables into the shared retrieval index.
+- The embedding model **MUST** be Google Gemini Embedding 2 (`gemini-embedding-2`). Text-only models (OpenAI, Cohere) are explicitly prohibited by REQ-RAG-002 — they cannot embed diagrams and tables into the shared retrieval index.
 - AI providers **MUST** have no-training data agreements in place before use (REQ-NFR-SEC-006).
 - Exported Word documents **MUST NOT** carry any AI-generated label or watermark (REQ-SIGN-001).
 - Human sign-off is the only approval path; no automated final approval (REQ-SIGN-003).

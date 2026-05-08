@@ -32,6 +32,15 @@ type Job = {
   scheduledAt: string;
   startedAt: string | null;
   completedAt: string | null;
+  indexing?: {
+    stage: "NO_PASSAGES" | "EMBEDDINGS_MISSING" | "PARTIAL" | "READY";
+    ready: boolean;
+    passageCount: number;
+    embeddedCount: number;
+    missingCount: number;
+    modelVersion: string | null;
+    message: string;
+  } | null;
 };
 
 type JobMeta = {
@@ -358,6 +367,24 @@ export default function ImportSettingsPanel() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to terminate ingestion.");
       setMessage(data.message ?? "Ingestion terminated.");
+      await load();
+    } catch (error: any) {
+      setMessage(error.message);
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function reembedJob(job: Job) {
+    setBusy(`reembed-${job.id}`);
+    setMessage("");
+    try {
+      const res = await fetch(`/api/settings/import/jobs/${encodeURIComponent(job.id)}/reembed`, {
+        method: "POST",
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed to queue embeddings.");
+      setMessage(`Queued ${data.passageCount} passages for ${data.modelVersion} embedding.`);
       await load();
     } catch (error: any) {
       setMessage(error.message);
@@ -848,10 +875,28 @@ export default function ImportSettingsPanel() {
                     )}
                   </td>
                   <td className="px-4 py-2 text-slate-500">
-                    {job.errorMessage ??
-                      (job.result
-                        ? `${job.result.passageCount ?? 0} passages / ${job.result.pageCount ?? 0} pages`
-                        : "-")}
+                    {job.errorMessage ? (
+                      job.errorMessage
+                    ) : (
+                      <div>
+                        <div>
+                          {job.result
+                            ? `${job.result.passageCount ?? 0} passages / ${job.result.pageCount ?? 0} pages`
+                            : "-"}
+                        </div>
+                        {job.indexing && (
+                          <div className={job.indexing.ready ? "mt-1 text-[11px] text-emerald-600" : "mt-1 text-[11px] text-amber-700"}>
+                            {job.indexing.message}
+                            {job.indexing.passageCount > 0 && (
+                              <span>
+                                {" "}
+                                ({job.indexing.embeddedCount}/{job.indexing.passageCount})
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </td>
                   <td className="px-4 py-2 text-slate-400">
                     {new Date(job.completedAt ?? job.startedAt ?? job.scheduledAt).toLocaleString()}
@@ -865,6 +910,15 @@ export default function ImportSettingsPanel() {
                         className="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-medium text-red-700 disabled:opacity-50"
                       >
                         Terminate
+                      </button>
+                    ) : job.indexing && !job.indexing.ready && job.indexing.passageCount > 0 ? (
+                      <button
+                        type="button"
+                        onClick={() => reembedJob(job)}
+                        disabled={busy === `reembed-${job.id}`}
+                        className="rounded-lg border border-amber-200 px-3 py-1.5 text-xs font-medium text-amber-800 disabled:opacity-50"
+                      >
+                        Re-run Embeddings
                       </button>
                     ) : (
                       <span className="text-slate-300">-</span>

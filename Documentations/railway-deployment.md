@@ -11,7 +11,7 @@ Studio. The intended production-style stack is:
 - Railway Redis
 - Cloudflare R2 object storage
 - Clerk authentication
-- Gemini `text-embedding-004` embeddings
+- Gemini `gemini-embedding-2` embeddings
 - Z.ai GLM-OCR Document AI OCR
 
 Railway should be connected to the GitHub repository. Keep the repository root as
@@ -127,7 +127,7 @@ S3_ENDPOINT=https://<cloudflare-account-id>.r2.cloudflarestorage.com
 S3_FORCE_PATH_STYLE=false
 
 GOOGLE_AI_API_KEY=<Google AI key>
-GEMINI_EMBEDDING_MODEL=text-embedding-004
+GEMINI_EMBEDDING_MODEL=gemini-embedding-2
 
 LLM_PROVIDER=ollama
 OLLAMA_API_KEY=<Ollama Cloud key>

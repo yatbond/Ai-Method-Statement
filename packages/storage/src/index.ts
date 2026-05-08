@@ -3,7 +3,7 @@
 // Local filesystem for dev; S3-compatible for production.
 // =============================================================================
 
-import path from "node:path";
+import { resolveLocalStoragePath } from "./local-path";
 
 export interface UploadResult {
   key: string;
@@ -59,26 +59,10 @@ export function createStorageProvider(): StorageProvider {
   }
 
   const { LocalStorageProvider } = require("./local-provider");
-  return new LocalStorageProvider(resolveLocalStoragePath());
-}
-
-function resolveLocalStoragePath() {
-  const configuredPath = process.env.LOCAL_STORAGE_PATH ?? "./.storage";
-  if (path.isAbsolute(configuredPath)) return configuredPath;
-
-  return path.resolve(process.env.AMS_REPO_ROOT ?? findRepoRoot(process.cwd()), configuredPath);
-}
-
-function findRepoRoot(startDir: string) {
-  let currentDir = path.resolve(startDir);
-  while (true) {
-    try {
-      require("node:fs").accessSync(path.join(currentDir, "pnpm-workspace.yaml"));
-      return currentDir;
-    } catch {
-      const parentDir = path.dirname(currentDir);
-      if (parentDir === currentDir) return startDir;
-      currentDir = parentDir;
-    }
-  }
+  return new LocalStorageProvider(
+    resolveLocalStoragePath({
+      configuredPath: process.env.LOCAL_STORAGE_PATH,
+      repoRoot: process.env.AMS_REPO_ROOT,
+    })
+  );
 }

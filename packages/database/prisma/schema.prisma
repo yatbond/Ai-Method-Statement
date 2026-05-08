@@ -333,8 +333,8 @@ model SourcePassage {
   extractedText               String
   contentType                 String  @default("text") // text | table | image | diagram
   imageStorageKey             String? // for image/diagram passages
-  embeddingModelVersion       String  // e.g. "text-embedding-004"
-  embedding                   Unsupported("vector(768)")?
+  embeddingModelVersion       String  // e.g. "gemini-embedding-2"
+  embedding                   Unsupported("vector(3072)")?
   lastVerifiedAt              DateTime?
   createdAt                   DateTime @default(now())
 
@@ -694,4 +694,16 @@ model AICostRecord {
 
   @@index([projectId])
   @@index([recordedAt])
+}
+
+// =============================================================================
+// RUNTIME SETTINGS
+// =============================================================================
+
+model RuntimeSetting {
+  key       String   @id
+  value     String
+  isSecret  Boolean  @default(false)
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
 }

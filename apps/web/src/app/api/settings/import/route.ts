@@ -1,7 +1,7 @@
 import fs from "node:fs/promises";
 import { NextResponse } from "next/server";
 import { getAuthUser } from "@/lib/auth";
-import { db } from "@ams/database";
+import { db, Prisma } from "@ams/database";
 import {
   normalizeImportFolderPath,
   canWriteRuntimeEnv,
@@ -12,6 +12,7 @@ import {
   type TradeImportSource,
 } from "@/lib/settings-files";
 import { ingestionQueue } from "@/lib/queues";
+import { buildIndexingStatus } from "@/lib/import-indexing-status";
 
 export async function GET(req: Request) {
   const user = await getAuthUser();
@@ -61,21 +62,68 @@ export async function GET(req: Request) {
   ]);
 
   const jobsWithQueueState = await attachQueueState(jobs);
+  const jobsWithIndexingStatus = await attachIndexingStatus(jobsWithQueueState);
 
   return NextResponse.json({
     trades,
     sources,
     envWritable: canWriteRuntimeEnv(),
     ingestionSettings: getIngestionSettings(env),
-    jobs: jobsWithQueueState,
+    jobs: jobsWithIndexingStatus,
     jobMeta: {
       scope: batchScope,
       batch: batchFilter?.meta ?? null,
       limit,
-      shown: jobsWithQueueState.length,
+      shown: jobsWithIndexingStatus.length,
       total: totalJobs,
       statusCounts: Object.fromEntries(statusCounts.map((row) => [row.status, row._count.id])),
     },
+  });
+}
+
+async function attachIndexingStatus<T extends { payload: unknown }>(jobs: T[]) {
+  const historicalMSIds = [
+    ...new Set(
+      jobs
+        .map((job) => (job.payload as any)?.historicalMSId)
+        .filter((id): id is string => typeof id === "string")
+    ),
+  ];
+  if (historicalMSIds.length === 0) return jobs;
+
+  const rows = await db.$queryRaw<
+    Array<{
+      historicalMSId: string;
+      passageCount: bigint;
+      embeddedCount: bigint;
+      modelVersion: string | null;
+    }>
+  >`
+    SELECT
+      "historicalMSId",
+      COUNT(*) AS "passageCount",
+      COUNT(embedding) AS "embeddedCount",
+      MAX("embeddingModelVersion") AS "modelVersion"
+    FROM "SourcePassage"
+    WHERE "historicalMSId" IN (${Prisma.join(historicalMSIds)})
+    GROUP BY "historicalMSId"
+  `;
+  const statusByHistoricalMSId = new Map(
+    rows.map((row) => [
+      row.historicalMSId,
+      buildIndexingStatus({
+        passageCount: Number(row.passageCount),
+        embeddedCount: Number(row.embeddedCount),
+        modelVersion: row.modelVersion,
+      }),
+    ])
+  );
+
+  return jobs.map((job) => {
+    const historicalMSId = (job.payload as any)?.historicalMSId;
+    return typeof historicalMSId === "string"
+      ? { ...job, indexing: statusByHistoricalMSId.get(historicalMSId) ?? null }
+      : job;
   });
 }
 

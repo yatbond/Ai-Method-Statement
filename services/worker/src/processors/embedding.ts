@@ -1,7 +1,7 @@
 // =============================================================================
 // Embedding processor (REQ-RAG-002, REQ-RAG-006)
 //
-// Embeds source passages using Google Gemini Embedding 2 (text-embedding-004).
+// Embeds source passages using Google Gemini Embedding 2.
 // Records the embedding model version against every chunk (REQ-RAG-006).
 // Images and diagrams use the multimodal embedding path.
 //
@@ -9,16 +9,19 @@
 // =============================================================================
 
 import type { Job } from "bullmq";
-import { db } from "@ams/database";
+import { db, applyRuntimeSettingsToProcessEnv } from "@ams/database";
 import { createEmbeddingProvider } from "@ams/ai-engine";
 import { createStorageProvider } from "@ams/storage";
+import { REQUIRED_EMBEDDING_MODEL } from "@ams/shared";
 
 const BATCH_DELAY_MS = 100; // rate-limit between Gemini API calls
 
 export async function processEmbedding(
   job: Job<{ passageIds: string[]; modelVersion: string }>
 ) {
-  const { passageIds, modelVersion } = job.data;
+  await applyRuntimeSettingsToProcessEnv();
+  const { passageIds } = job.data;
+  const modelVersion = process.env.GEMINI_EMBEDDING_MODEL || REQUIRED_EMBEDDING_MODEL;
 
   const apiKey = process.env.GOOGLE_AI_API_KEY;
   if (!apiKey) {
