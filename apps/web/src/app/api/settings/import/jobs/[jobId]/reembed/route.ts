@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getAuthUser } from "@/lib/auth";
 import { embeddingQueue } from "@/lib/queues";
+import { buildReembedQueueMessage } from "@/lib/import-indexing-status";
 import { db, getRuntimeSettings } from "@ams/database";
 import { REQUIRED_EMBEDDING_MODEL } from "@ams/shared";
 
@@ -36,6 +37,7 @@ export async function POST(
   `;
   const passageIds = rows.map((row) => row.id);
   const batchSize = 50;
+  const queuedBatchCount = Math.ceil(passageIds.length / batchSize);
   for (let i = 0; i < passageIds.length; i += batchSize) {
     await embeddingQueue.add("document.embed", {
       passageIds: passageIds.slice(i, i + batchSize),
@@ -45,8 +47,13 @@ export async function POST(
 
   return NextResponse.json({
     ok: true,
-    queued: Math.ceil(passageIds.length / batchSize),
+    queued: queuedBatchCount,
     passageCount: passageIds.length,
     modelVersion,
+    message: buildReembedQueueMessage({
+      passageCount: passageIds.length,
+      queuedBatchCount,
+      modelVersion,
+    }),
   });
 }

@@ -70,3 +70,16 @@ export function buildIndexingStatus(input: {
     message: "OCR and retrieval indexing are complete.",
   };
 }
+
+export function buildReembedQueueMessage(input: {
+  passageCount: number;
+  queuedBatchCount: number;
+  modelVersion: string;
+}) {
+  if (input.passageCount === 0) {
+    return `No passages need re-embedding for ${input.modelVersion}.`;
+  }
+
+  const jobWord = input.queuedBatchCount === 1 ? "job" : "jobs";
+  return `Queued ${input.passageCount} passages in ${input.queuedBatchCount} embedding ${jobWord} for ${input.modelVersion}.`;
+}

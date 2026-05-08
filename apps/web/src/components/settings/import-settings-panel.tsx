@@ -122,6 +122,7 @@ export default function ImportSettingsPanel() {
   const [folderListing, setFolderListing] = useState<FolderListing | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState("");
+  const [reembedFeedbackByJobId, setReembedFeedbackByJobId] = useState<Record<string, string>>({});
   const dirtyFolderTradeIds = useRef(new Set<string>());
   const settingsDraftDirty = useRef(false);
   const busyRef = useRef<string | null>(null);
@@ -384,7 +385,9 @@ export default function ImportSettingsPanel() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to queue embeddings.");
-      setMessage(`Queued ${data.passageCount} passages for ${data.modelVersion} embedding.`);
+      const feedback = data.message ?? `Queued ${data.passageCount} passages for ${data.modelVersion} embedding.`;
+      setMessage(feedback);
+      setReembedFeedbackByJobId((current) => ({ ...current, [job.id]: feedback }));
       await load();
     } catch (error: any) {
       setMessage(error.message);
@@ -912,14 +915,21 @@ export default function ImportSettingsPanel() {
                         Terminate
                       </button>
                     ) : job.indexing && !job.indexing.ready && job.indexing.passageCount > 0 ? (
-                      <button
-                        type="button"
-                        onClick={() => reembedJob(job)}
-                        disabled={busy === `reembed-${job.id}`}
-                        className="rounded-lg border border-amber-200 px-3 py-1.5 text-xs font-medium text-amber-800 disabled:opacity-50"
-                      >
-                        Re-run Embeddings
-                      </button>
+                      <div>
+                        <button
+                          type="button"
+                          onClick={() => reembedJob(job)}
+                          disabled={busy === `reembed-${job.id}`}
+                          className="rounded-lg border border-amber-200 px-3 py-1.5 text-xs font-medium text-amber-800 disabled:opacity-50"
+                        >
+                          {busy === `reembed-${job.id}` ? "Queueing..." : "Re-run Embeddings"}
+                        </button>
+                        {reembedFeedbackByJobId[job.id] && (
+                          <div className="mt-1 max-w-[220px] text-[11px] leading-4 text-slate-500">
+                            {reembedFeedbackByJobId[job.id]}
+                          </div>
+                        )}
+                      </div>
                     ) : (
                       <span className="text-slate-300">-</span>
                     )}
