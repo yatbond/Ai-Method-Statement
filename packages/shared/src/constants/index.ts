@@ -5,8 +5,8 @@
 // ── Embedding ─────────────────────────────────────────────────────────────────
 
 // REQ-RAG-002: Gemini Embedding 2 is required. Text-only models are prohibited.
-export const REQUIRED_EMBEDDING_MODEL = "text-embedding-004";
-export const EMBEDDING_DIMENSIONS = 3072; // Gemini text-embedding-004 output size
+export const REQUIRED_EMBEDDING_MODEL = "gemini-embedding-2";
+export const EMBEDDING_DIMENSIONS = 3072; // Gemini Embedding 2 full-width output size
 
 // ── Retrieval ─────────────────────────────────────────────────────────────────
 

@@ -34,7 +34,7 @@ S3_FORCE_PATH_STYLE=false
 
 # Required embeddings
 GOOGLE_AI_API_KEY=<google-ai-key>
-GEMINI_EMBEDDING_MODEL=text-embedding-004
+GEMINI_EMBEDDING_MODEL=gemini-embedding-2
 
 # Drafting LLM
 LLM_PROVIDER=ollama

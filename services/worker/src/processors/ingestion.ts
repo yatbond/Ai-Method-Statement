@@ -11,8 +11,9 @@
 // =============================================================================
 
 import { UnrecoverableError, type Job } from "bullmq";
-import { db, DocumentStatus } from "@ams/database";
+import { db, DocumentStatus, applyRuntimeSettingsToProcessEnv } from "@ams/database";
 import { createDocumentAIProviderAsync, getDocumentAIConfigFromEnv } from "@ams/ai-engine";
+import { REQUIRED_EMBEDDING_MODEL } from "@ams/shared";
 import { createStorageProvider } from "@ams/storage";
 import { embeddingQueue } from "../queues";
 import { taggingQueue } from "../queues";
@@ -20,6 +21,7 @@ import { loadRootEnv } from "../lib/load-root-env";
 
 export async function processIngestion(job: Job<{ documentId: string }>) {
   loadRootEnv();
+  await applyRuntimeSettingsToProcessEnv();
   const { documentId } = job.data;
 
   await db.workerJob.updateMany({
@@ -58,7 +60,7 @@ export async function processIngestion(job: Job<{ documentId: string }>) {
 
     // Step 3: Persist SourcePassage records
     const embeddingModelVersion =
-      process.env.GEMINI_EMBEDDING_MODEL ?? "text-embedding-004";
+      process.env.GEMINI_EMBEDDING_MODEL ?? REQUIRED_EMBEDDING_MODEL;
     const passageIds: string[] = [];
 
     for (const chunk of extraction.chunks) {

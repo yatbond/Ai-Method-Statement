@@ -16,7 +16,7 @@ The codebase is ready for a first hosted deployment trial on Railway with:
 - Cloudflare R2 object storage
 - Clerk authentication
 - Z.ai GLM-OCR as the recommended hosted Document AI OCR provider
-- Gemini `text-embedding-004` as the required embedding model
+- Gemini `gemini-embedding-2` as the required embedding model
 
 The actual Railway/Cloudflare/Clerk deployment has not yet been performed from
 this workspace because it requires account-level setup and production secrets.
@@ -111,7 +111,7 @@ STORAGE_PROVIDER=s3
 AWS_REGION=auto
 S3_FORCE_PATH_STYLE=false
 
-GEMINI_EMBEDDING_MODEL=text-embedding-004
+GEMINI_EMBEDDING_MODEL=gemini-embedding-2
 
 LLM_PROVIDER=ollama
 OLLAMA_MODEL=kimi-k2.6:cloud

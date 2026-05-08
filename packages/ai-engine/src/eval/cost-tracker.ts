@@ -11,7 +11,7 @@ const COST_RATES: Record<string, { input: number; output: number }> = {
   "claude-opus-4-7":            { input: 12.00, output: 60.00 },
   "claude-haiku-4-5-20251001":  { input: 0.20, output: 1.00 },
   "gpt-4o":                     { input: 3.94, output: 15.75 },
-  "text-embedding-004":         { input: 0.00, output: 0.00 }, // free tier
+  "gemini-embedding-2":         { input: 0.00, output: 0.00 },
 };
 
 export interface CostRecord {

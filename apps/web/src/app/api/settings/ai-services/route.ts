@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { getAuthUser } from "@/lib/auth";
+import { getRuntimeSettings, upsertRuntimeSettings } from "@ams/database";
+import { REQUIRED_EMBEDDING_MODEL } from "@ams/shared";
 import {
   addAIModelOption,
   canWriteRuntimeEnv,
@@ -75,13 +77,20 @@ const SERVICES = {
       openrouter: { apiKey: "IMAGE_GEN_API_KEY", baseURLKey: "IMAGE_GEN_BASE_URL", defaultModel: "google/gemini-2.5-flash-image", defaultBaseURL: "https://openrouter.ai/api/v1" },
     },
   },
+  embedding: {
+    providerKey: "EMBEDDING_PROVIDER",
+    modelKey: "GEMINI_EMBEDDING_MODEL",
+    providers: {
+      gemini: { apiKey: "GOOGLE_AI_API_KEY", modelKey: "GEMINI_EMBEDDING_MODEL", defaultModel: REQUIRED_EMBEDDING_MODEL },
+    },
+  },
 } as const;
 
 export async function GET() {
   const user = await getAuthUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const env = await readEnvFile();
+  const env = { ...(await readEnvFile()), ...(await getRuntimeSettings()) };
   const customModels = await readAIModelOptions();
   const backups = await listEnvBackups();
 
@@ -93,15 +102,19 @@ export async function GET() {
       const apiKeyName = providerConfig.apiKey;
       const providerDefaults = (PROVIDER_DEFAULTS as Record<string, any>)[provider] ?? { models: [], baseURL: "" };
       const customProviderModels = customModels[key]?.[provider] ?? [];
+      const defaultModel = providerConfig.defaultModel ?? providerDefaults.models?.[0] ?? "";
+      const serviceModels =
+        key === "embedding"
+          ? [REQUIRED_EMBEDDING_MODEL]
+          : [
+              ...(providerDefaults.models ?? []),
+              ...(providerConfig.defaultModel ? [providerConfig.defaultModel] : []),
+              ...customProviderModels,
+              env[providerConfig.modelKey ?? service.modelKey] ?? "",
+            ];
       const models = Array.from(
-        new Set([
-          ...(providerDefaults.models ?? []),
-          ...(providerConfig.defaultModel ? [providerConfig.defaultModel] : []),
-          ...customProviderModels,
-          env[providerConfig.modelKey ?? service.modelKey] ?? "",
-        ].filter(Boolean))
+        new Set(serviceModels.filter(Boolean))
       );
-      const defaultModel = providerConfig.defaultModel ?? models[0] ?? "";
       const defaultBaseURL = providerConfig.defaultBaseURL ?? providerDefaults.baseURL ?? "";
       return {
         key,
@@ -109,16 +122,20 @@ export async function GET() {
         providerKey: service.providerKey,
         providers: Object.keys(service.providers),
         model: env[providerConfig.modelKey ?? service.modelKey] ?? defaultModel,
-        baseURL: env[providerConfig.baseURLKey ?? service.baseURLKey] ?? defaultBaseURL,
+        baseURL: env[providerConfig.baseURLKey ?? (service as any).baseURLKey] ?? defaultBaseURL,
         providerDefaults: Object.fromEntries(
           Object.entries(service.providers).map(([providerKey, config]: [string, any]) => {
             const defaults = (PROVIDER_DEFAULTS as Record<string, any>)[providerKey] ?? {};
+            const providerModelOptions =
+              key === "embedding"
+                ? [REQUIRED_EMBEDDING_MODEL]
+                : [
+                    ...(defaults.models ?? []),
+                    ...(config.defaultModel ? [config.defaultModel] : []),
+                    ...(customModels[key]?.[providerKey] ?? []),
+                  ];
             const optionModels = Array.from(
-              new Set([
-                ...(defaults.models ?? []),
-                ...(config.defaultModel ? [config.defaultModel] : []),
-                ...(customModels[key]?.[providerKey] ?? []),
-              ].filter(Boolean))
+              new Set(providerModelOptions.filter(Boolean))
             );
             return [
               providerKey,
@@ -135,12 +152,6 @@ export async function GET() {
         apiKeySet: apiKeyName ? Boolean(env[apiKeyName]) : true,
       };
     }),
-    embedding: {
-      provider: "gemini",
-      model: env.GEMINI_EMBEDDING_MODEL || "text-embedding-004",
-      apiKeySet: Boolean(env.GOOGLE_AI_API_KEY || env.GOOGLE_API_KEY),
-      locked: true,
-    },
     backups,
   });
 }
@@ -167,7 +178,10 @@ export async function PATCH(req: Request) {
   };
 
   const providerDefaults = (PROVIDER_DEFAULTS as Record<string, any>)[provider] ?? {};
-  const model = String(body.model ?? providerConfig.defaultModel ?? providerDefaults.models?.[0] ?? "").trim();
+  const model =
+    serviceKey === "embedding"
+      ? REQUIRED_EMBEDDING_MODEL
+      : String(body.model ?? providerConfig.defaultModel ?? providerDefaults.models?.[0] ?? "").trim();
   updates[providerConfig.modelKey ?? service.modelKey] = model;
 
   const baseURL = String(body.baseURL ?? providerConfig.defaultBaseURL ?? providerDefaults.baseURL ?? "").trim();
@@ -180,10 +194,17 @@ export async function PATCH(req: Request) {
     const googleKey = env.GOOGLE_AI_API_KEY || env.GOOGLE_API_KEY;
     if (googleKey) updates[providerConfig.apiKey] = googleKey;
   }
-  if (model) await addAIModelOption(serviceKey, provider, model);
+  if (model && serviceKey !== "embedding" && canWriteRuntimeEnv()) {
+    await addAIModelOption(serviceKey, provider, model);
+  }
 
-  const backupPath = await updateEnvFile(updates);
-  return NextResponse.json({ ok: true, backupPath });
+  let backupPath: string | null = null;
+  if (canWriteRuntimeEnv()) {
+    backupPath = await updateEnvFile(updates);
+  } else {
+    await upsertRuntimeSettings(updates);
+  }
+  return NextResponse.json({ ok: true, backupPath, runtimeSettings: !canWriteRuntimeEnv() });
 }
 
 export async function POST(req: Request) {

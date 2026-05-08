@@ -6,7 +6,7 @@
 // =============================================================================
 
 import { UnrecoverableError, type Job } from "bullmq";
-import { db } from "@ams/database";
+import { db, applyRuntimeSettingsToProcessEnv } from "@ams/database";
 import {
   createDocumentAIProviderAsync,
   getDocumentAIConfigFromEnv,
@@ -14,6 +14,7 @@ import {
 } from "@ams/ai-engine";
 import { createStorageProvider } from "@ams/storage";
 import type { StorageProvider } from "@ams/storage";
+import { REQUIRED_EMBEDDING_MODEL } from "@ams/shared";
 import { embeddingQueue, ingestionQueue, taggingQueue } from "../queues";
 import { loadRootEnv } from "../lib/load-root-env";
 
@@ -51,6 +52,7 @@ export async function processHistoricalMSIngestion(
   job: Job<HistoricalMSIngestPayload>
 ) {
   loadRootEnv();
+  await applyRuntimeSettingsToProcessEnv();
   const { workerJobId, historicalMSId, fileKey, mimeType } = job.data;
 
   if (await isCancelled(workerJobId, historicalMSId)) {
@@ -73,7 +75,7 @@ export async function processHistoricalMSIngestion(
     const storage = createStorageProvider();
     const fileBuffer = await storage.download(fileKey);
     const embeddingModelVersion =
-      process.env.GEMINI_EMBEDDING_MODEL ?? "text-embedding-004";
+      process.env.GEMINI_EMBEDDING_MODEL ?? REQUIRED_EMBEDDING_MODEL;
     const checkpoint = await readIngestionCheckpoint(workerJobId, historicalMSId);
     const checkpointedPassageIds = checkpoint.completedBatches.flatMap((batch) => batch.passageIds);
     let persistedPassageIds = [...checkpointedPassageIds];

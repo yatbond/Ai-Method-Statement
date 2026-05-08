@@ -20,6 +20,7 @@ type Backup = {
 };
 
 const SERVICE_LABELS: Record<string, string> = {
+  embedding: "Embedding / Retrieval Index",
   llm: "Drafting LLM",
   documentAI: "Document AI",
   imageGen: "Visual Generation",
@@ -156,7 +157,7 @@ export default function AIServicesPanel() {
         <p className="mt-1 text-xs text-slate-400">
           {envWritable
             ? "Provider settings are written to the repo root .env file after you press Save."
-            : "Hosted production reads provider settings from Railway environment variables."}
+            : "Hosted production saves provider settings encrypted in the application database."}
         </p>
       </div>
 
@@ -191,10 +192,10 @@ export default function AIServicesPanel() {
                 <button
                   type="button"
                   onClick={() => save(service)}
-                  disabled={busy === service.key || !envWritable}
+                  disabled={busy === service.key}
                   className="rounded-lg bg-slate-950 px-3 py-2 text-xs font-medium text-white disabled:opacity-50"
                 >
-                  {envWritable ? "Save" : "Managed In Railway"}
+                  Save
                 </button>
               </div>
 
@@ -204,6 +205,7 @@ export default function AIServicesPanel() {
                   <select
                     value={selectedProvider}
                     onChange={(event) => changeProvider(service, event.target.value)}
+                    disabled={service.key === "embedding"}
                     className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-800"
                   >
                     {service.providers.map((provider) => (
@@ -225,7 +227,7 @@ export default function AIServicesPanel() {
                         {model}
                       </option>
                     ))}
-                    <option value="__custom__">Add custom model...</option>
+                    {service.key !== "embedding" && <option value="__custom__">Add custom model...</option>}
                   </select>
                   {customModel !== "" && (
                     <input

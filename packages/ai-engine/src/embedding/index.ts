@@ -1,8 +1,7 @@
 // =============================================================================
 // Embedding provider abstraction
 //
-// REQ-RAG-002: The system MUST use Google Gemini Embedding 2 (text-embedding-004
-// or current production-equivalent multimodal variant) as the default embedding
+// REQ-RAG-002: The system MUST use Google Gemini Embedding 2 as the embedding
 // model. Text-only embedding models MUST NOT be used.
 // =============================================================================
 
@@ -30,20 +29,49 @@ export class GeminiEmbeddingProvider implements EmbeddingProvider {
   }
 
   async embed(request: EmbeddingRequest): Promise<EmbeddingResponse> {
-    const { GoogleGenerativeAI } = await import("@google/generative-ai");
-    const genAI = new GoogleGenerativeAI(this.apiKey);
-    const model = genAI.getGenerativeModel({ model: this.modelVersion });
-
-    let content: string;
+    let part: { text: string } | { inlineData: { mimeType: string; data: string } };
     if (request.contentType === "image" && Buffer.isBuffer(request.content)) {
-      // Multimodal: base64-encode image for Gemini
-      content = request.content.toString("base64");
+      part = {
+        inlineData: {
+          mimeType: "image/png",
+          data: request.content.toString("base64"),
+        },
+      };
     } else {
-      content = request.content as string;
+      part = { text: request.content as string };
     }
 
-    const result = await model.embedContent(content);
-    const embedding = result.embedding.values;
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${this.modelVersion}:embedContent`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-goog-api-key": this.apiKey,
+        },
+        body: JSON.stringify({
+          model: `models/${this.modelVersion}`,
+          content: { parts: [part] },
+          outputDimensionality: this.dimensions,
+        }),
+      }
+    );
+    const result: any = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(
+        result?.error?.message ??
+          `Gemini Embedding 2 request failed with status ${response.status}.`
+      );
+    }
+    const embedding = result?.embedding?.values;
+    if (!Array.isArray(embedding)) {
+      throw new Error("Gemini Embedding 2 response did not include an embedding vector.");
+    }
+    if (embedding.length !== this.dimensions) {
+      throw new Error(
+        `Gemini Embedding 2 returned ${embedding.length} dimensions; expected ${this.dimensions}.`
+      );
+    }
 
     return {
       embedding,

@@ -11,6 +11,7 @@ import { db } from "@ams/database";
 import ImportSettingsPanel from "@/components/settings/import-settings-panel";
 import AIServicesPanel from "@/components/settings/ai-services-panel";
 import StorageTestPanel from "@/components/settings/storage-test-panel";
+import { REQUIRED_EMBEDDING_MODEL, EMBEDDING_DIMENSIONS } from "@ams/shared";
 
 export const metadata = { title: "Settings — AMS Studio" };
 
@@ -63,7 +64,7 @@ export default async function SettingsPage() {
     { label: "OLLAMA_MODEL", keys: ["OLLAMA_MODEL"], required: llmProvider === "ollama", purpose: "Ollama drafting model" },
     { label: "OLLAMA_BASE_URL", keys: ["OLLAMA_BASE_URL"], required: llmProvider === "ollama" && process.env.NODE_ENV === "production", purpose: "Ollama drafting base URL" },
     { label: "GOOGLE_AI_API_KEY", keys: ["GOOGLE_AI_API_KEY", "GOOGLE_API_KEY"], required: true, purpose: "Gemini embeddings" },
-    { label: "GEMINI_EMBEDDING_MODEL", keys: ["GEMINI_EMBEDDING_MODEL"], required: false, purpose: "Must stay text-embedding-004 if set" },
+    { label: "GEMINI_EMBEDDING_MODEL", keys: ["GEMINI_EMBEDDING_MODEL"], required: false, purpose: `Must stay ${REQUIRED_EMBEDDING_MODEL} if set` },
     { label: "DOCUMENT_AI_PROVIDER", keys: ["DOCUMENT_AI_PROVIDER"], required: true, purpose: "Selected Document AI OCR provider" },
     { label: "DOCUMENT_AI_API_KEY", keys: ["DOCUMENT_AI_API_KEY"], required: ["gemini", "openrouter", "zai"].includes(documentAIProvider), purpose: "Document AI OCR provider API key" },
     { label: "DOCUMENT_AI_MODEL", keys: ["DOCUMENT_AI_MODEL"], required: documentAIProvider !== "native", purpose: "Document AI OCR model" },
@@ -217,7 +218,7 @@ export default async function SettingsPage() {
         <div className="bg-white rounded-xl border border-gray-200 divide-y divide-gray-100">
           {[
             ["LLM provider", `${llmProvider} (${llmModel})`],
-            ["Embedding model", "Google Gemini Embedding 2 (text-embedding-004, 3072 dims)"],
+            ["Embedding model", `Google Gemini Embedding 2 (${REQUIRED_EMBEDDING_MODEL}, ${EMBEDDING_DIMENSIONS} dims)`],
             ["Vector store", "PostgreSQL + pgvector (HNSW, cosine)"],
             ["Retrieval strategy", "Reciprocal Rank Fusion (RRF k=60, cosine + FTS)"],
             ["Document AI", "Google Document AI"],

@@ -12,7 +12,7 @@ import { db, DocumentStatus } from "@ams/database";
 import { audit } from "@/lib/audit";
 import { createStorageProvider } from "@ams/storage";
 import { ingestionQueue } from "@/lib/queues";
-import { MAX_UPLOAD_SIZE_BYTES } from "@ams/shared";
+import { MAX_UPLOAD_SIZE_BYTES, REQUIRED_EMBEDDING_MODEL } from "@ams/shared";
 
 export async function GET(req: Request) {
   const user = await getAuthUser();
@@ -120,7 +120,7 @@ export async function POST(req: Request) {
         historicalMSId: ms.id,
         fileKey,
         mimeType: file.type,
-        modelVersion: process.env.GEMINI_EMBEDDING_MODEL ?? "text-embedding-004",
+        modelVersion: process.env.GEMINI_EMBEDDING_MODEL ?? REQUIRED_EMBEDDING_MODEL,
       },
     },
   });
