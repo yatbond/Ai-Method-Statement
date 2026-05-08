@@ -16,6 +16,14 @@ import { REQUIRED_EMBEDDING_MODEL } from "@ams/shared";
 
 const BATCH_DELAY_MS = 100; // rate-limit between Gemini API calls
 
+export function buildEmbeddingFailureMessage(input: {
+  failed: number;
+  total: number;
+  firstError: string;
+}) {
+  return `Embedding job failed for ${input.failed}/${input.total} passages. First error: ${input.firstError}`;
+}
+
 export async function processEmbedding(
   job: Job<{ passageIds: string[]; modelVersion: string }>
 ) {
@@ -41,6 +49,8 @@ export async function processEmbedding(
   const storage = createStorageProvider();
   let processed = 0;
   let skipped = 0;
+  let failed = 0;
+  let firstError = "";
 
   for (const passageId of passageIds) {
     const passage = await db.sourcePassage.findUnique({
@@ -97,8 +107,12 @@ export async function processEmbedding(
 
       processed++;
     } catch (err: any) {
-      console.error(`Failed to embed passage ${passageId}: ${err.message}`);
-      // Don't throw — continue with remaining passages
+      const message = err?.message ?? String(err);
+      failed++;
+      if (!firstError) firstError = message;
+      console.error(`Failed to embed passage ${passageId}: ${message}`);
+      // Continue through the batch so successful passages are persisted and
+      // retries can skip them, then fail the job with a useful summary.
       processed++;
     }
 
@@ -110,7 +124,17 @@ export async function processEmbedding(
     await job.updateProgress(Math.round((processed / passageIds.length) * 100));
   }
 
-  return { processed, skipped, modelVersion };
+  if (failed > 0) {
+    throw new Error(
+      buildEmbeddingFailureMessage({
+        failed,
+        total: passageIds.length,
+        firstError,
+      })
+    );
+  }
+
+  return { processed, skipped, failed, modelVersion };
 }
 
 function sleep(ms: number) {
